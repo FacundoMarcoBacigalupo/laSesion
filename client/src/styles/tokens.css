@@ -1,0 +1,7 @@
+:root{
+--a:#8b6cff;--r:#ff3b5c;--bg:#07040c;--p:rgba(255,255,255,.04);--l:rgba(255,255,255,.09);--tx:#efeaf7;--mu:#9d92ad;
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx);line-height:1.6;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;background:radial-gradient(600px 400px at 15% 0,#2a1466aa,transparent),radial-gradient(500px 400px at 90% 30%,#5c0f2a88,transparent);z-index:-1}

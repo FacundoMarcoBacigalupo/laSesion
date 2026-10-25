@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: la-sesion
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: PUBLIC_URL
+        sync: false
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: MESA_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: AI_ENABLED
+        value: "true"
+      - key: AI_HEARTBEAT_MS
+        value: "9000"
+      - key: AI_MIN_GAP_MS
+        value: "2500"
+      - key: AI_MAX_RPM
+        value: "12"
+      - key: AI_TIMEOUT_MS
+        value: "7000"
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_AUTH_TOKEN
+        sync: false
+      - key: RETENTION_HOURS
+        value: "24"
+      - key: LOG_LEVEL
+        value: info

@@ -1,0 +1,9 @@
+.app{min-height:100vh;padding:16px}
+.card{background:var(--p);border:1px solid var(--l);border-radius:18px;padding:22px}
+.btn{background:var(--a);color:#fff;font-weight:700;padding:12px 20px;border-radius:12px;border:0;cursor:pointer;font-size:16px;box-shadow:0 0 30px -4px var(--a)}
+.btn.ghost{background:none;border:1px solid var(--l);box-shadow:none}
+.title{font-size:clamp(32px,8vw,72px);letter-spacing:-.03em;line-height:1;margin:12px 0;background:linear-gradient(180deg,#fff,#8b6cff 70%,#ff3b5c);-webkit-background-clip:text;color:transparent;animation:fl 5s infinite}
+@keyframes fl{50%{filter:drop-shadow(0 0 28px #8b6cffaa)}93%{opacity:1}95%{opacity:.5}}
+.meter{height:10px;background:#1a1226;border-radius:9px;overflow:hidden;margin:10px 0}
+.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--a),var(--r));width:0;transition:.4s}
+@media(max-width:560px){.app{padding:10px}}

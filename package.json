@@ -1,0 +1,29 @@
+{
+  "name": "la-sesion",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev -w server\" \"npm:dev -w client\"",
+    "build": "npm run build -w shared && npm run build -w client && npm run build -w server",
+    "start": "node server/dist/index.js",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "test": "npm run lint && npm test --workspaces --if-present",
+    "db:migrate": "npm run migrate -w server"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.72.0",
+    "@typescript-eslint/parser": "^8.72.0",
+    "concurrently": "9.1.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript-eslint": "^8.72.0"
+  }
+}
