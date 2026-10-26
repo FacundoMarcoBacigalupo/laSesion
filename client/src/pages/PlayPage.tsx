@@ -88,16 +88,24 @@ export default function PlayPage() {
 
   return (
     <div className="app">
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className="btn ghost" onClick={() => setScreen('hold')}>Hold</button>
-        <button className="btn ghost" onClick={() => setScreen('ask')}>Ask</button>
-        <button className="btn ghost" onClick={() => setScreen('vote')}>Vote</button>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <nav className="nav-tabs">
+          <button className={`nav-tab ${screen === 'hold' ? 'active' : ''}`} onClick={() => setScreen('hold')}>
+            <span>🖐️</span> Sostener
+          </button>
+          <button className={`nav-tab ${screen === 'ask' ? 'active' : ''}`} onClick={() => setScreen('ask')}>
+            <span>💬</span> Preguntar
+          </button>
+          <button className={`nav-tab ${screen === 'vote' ? 'active' : ''}`} onClick={() => setScreen('vote')}>
+            <span>🗳️</span> Votar
+          </button>
+        </nav>
       </div>
 
       {screen === 'hold' && (
         <div className="card" style={{ textAlign: 'center' }}>
-          <p style={{ color: 'var(--mu)' }}>Poné el dedo sobre el vaso. No lo sueltes.</p>
-          <div style={{ margin: '20px auto', width: 170, height: 170, perspective: 600 }}>
+          <p style={{ color: 'var(--mu)', marginBottom: 6 }}>Poné el dedo sobre el vaso. No lo sueltes.</p>
+          <div style={{ margin: '16px auto', width: 220, height: 220, perspective: 600 }}>
             {tierLow ? (
               <div className={'cup-w' + (hold.holding ? ' on' : '')} style={{ width: 170, height: 170, margin: 'auto' }}>
                 <div className="glow" />
@@ -107,7 +115,17 @@ export default function PlayPage() {
                 </div>
               </div>
             ) : (
-              <CupSceneLazy holding={hold.holding} onStart={hold.start} onStop={hold.stop} />
+              <Suspense fallback={
+                <div className={'cup-w' + (hold.holding ? ' on' : '')} style={{ width: 170, height: 170, margin: 'auto' }}>
+                  <div className="glow" />
+                  <div className="cup" onPointerDown={(e) => { (e.target as any).setPointerCapture?.(e.pointerId); hold.start(); }} onPointerUp={hold.stop} onPointerCancel={hold.stop}>
+                    <div className="in" /><div className="hl" />
+                    <span>{hold.holding ? 'LATIENDO\n♥' : 'TOCÁ Y\nMANTENÉ'}</span>
+                  </div>
+                </div>
+              }>
+                <CupSceneLazy holding={hold.holding} onStart={hold.start} onStop={hold.stop} />
+              </Suspense>
             )}
           </div>
           <p style={{ fontSize: 13, color: 'var(--mu)' }}>{hold.holding ? '✋ Sostenés. El espíritu lo siente.' : 'Esperando tu mano...'}</p>

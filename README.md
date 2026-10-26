@@ -6,6 +6,16 @@
 
 ---
 
+## 📍 Rutas Principales de la Aplicación
+
+| Ruta | Rol / Destino | Descripción |
+| :--- | :--- | :--- |
+| **`/`** *(redirige a `/play`)* | 📱 **Público (Celulares)** | Entrada de los participantes: colocan su nombre, aceptan el consentimiento, sostienen el vaso 3D, mandan preguntas a la cola, votan, firman pactos y participan en el exorcismo. |
+| **`/mesa`** *(o `/mesa?key=clave-del-proyector`)* | 📽️ **Pantalla / Proyector** | El tablero Ouija colectivo gigante con el **código QR** para escanear, letras que se encienden al teclear el espíritu, caldero de ofrendas con física en tiempo real y medidor de exorcismo. |
+| **`/admin`** *(login en `/admin/login`)* | 🎛️ **Panel del Director / Admin** | El centro de control: monitor de usuarios, control de fases, preguntas rápidas, disparador de víctima, pactos, calibración de IA y contraseña predeterminada (`admin`). |
+
+---
+
 ## 🎯 Qué hace
 
 | Mecánica | Descripción |
@@ -266,92 +276,134 @@ snapshots     (session_id, state_json, at)  -- PK session_id
 
 ---
 
-## 🌐 Despliegue a Render (1 Web Service)
+---
 
-### render.yaml (incluido)
+## 🚀 Despliegue 100% Gratis Paso a Paso
 
-```yaml
-services:
-  - type: web
-    name: la-sesion
-    env: node
-    plan: free
-    buildCommand: npm ci && npm run build
-    startCommand: npm start
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 3000
-      - key: PUBLIC_URL
-        sync: false          # se rellena en dashboard
-      - key: TRUST_PROXY
-        value: "1"
-      - key: ADMIN_PASSWORD
-        sync: false
-      - key: JWT_SECRET
-        sync: false
-      - key: MESA_KEY
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.5-flash
-      - key: AI_ENABLED
-        value: "true"
-      - key: AI_HEARTBEAT_MS
-        value: "9000"
-      - key: AI_MIN_GAP_MS
-        value: "2500"
-      - key: AI_MAX_RPM
-        value: "12"
-      - key: AI_TIMEOUT_MS
-        value: "7000"
-      - key: DATABASE_URL
-        sync: false
-      - key: DATABASE_AUTH_TOKEN
-        sync: false
-      - key: RETENTION_HOURS
-        value: "24"
-      - key: LOG_LEVEL
-        value: info
-```
-
-### Pasos
-
-1. **Push a GitHub** (repo público o privado)
-2. **Render Dashboard** → New → Web Service → Conecta repo
-3. **Build Command**: `npm ci && npm run build`
-4. **Start Command**: `npm start`
-5. **Health Check Path**: `/health`
-6. **Environment Variables**: Agrega todas las de arriba como *Secrets* en el panel de Render (no en el repo)
-7. **Deploy**
-
-### Evitar Cold Start (Render Free se duerme ~15 min)
-
-- **UptimeRobot** (gratis): Monitor HTTP cada 5 min a `https://tu-app.onrender.com/health`
-- **cron-job.org** (gratis): Job cada 5 min GET `/health`
-- **Antes del evento**: Despierta manual 15 min antes + ping automático durante la noche
-- **Frontend**: Muestra "El espíritu despierta..." con spinner mientras reconecta (Socket.IO reconnection infinita, backoff 500ms→5s)
+El proyecto está diseñado para funcionar en capas separadas o conjuntas de manera completamente gratuita:
+1. **Frontend (Vercel)**: Rápido, CDN global, HTTPS automático y sin cold-start.
+2. **Backend (Render / Railway / Koyeb / Fly.io)**: Soporte completo para Node.js y WebSocket / Socket.IO.
+3. **Base de Datos (Turso / Supabase)**: SQLite edge o PostgreSQL serverless gratis.
 
 ---
 
-## 🔑 Obtener API Key Gemini (Gratis)
+### 🔑 Paso 0: Obtener la API Key Gratuita de Gemini
 
-1. Entra a [Google AI Studio](https://aistudio.google.com) con cuenta Google
-2. Menú lateral → **Get API key** → **Create API key**
-3. Elige/crea proyecto Google Cloud (se hace solo)
-4. Copia la key → `GEMINI_API_KEY` en Render (Secret)
-5. **Prueba antes del evento**:
+1. Entra con tu cuenta de Google a [Google AI Studio](https://aistudio.google.com).
+2. En la barra lateral izquierda, haz clic en **"Get API key"** (o en el botón superior **"Create API key"**).
+3. Selecciona **"Create API key in new project"** (creará un proyecto de Google Cloud automáticamente sin pedir tarjeta).
+4. Copia la clave generada (`AIzaSy...`).
+5. **Comprobación rápida (opcional)** con PowerShell o curl:
+   ```bash
+   curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=TU_API_KEY" ^
+     -H "Content-Type: application/json" ^
+     -d "{\"contents\":[{\"parts\":[{\"text\":\"Responde solo: OK\"}]}]}"
+   ```
+> *Guárdala:* Solo la pondrás en las variables de entorno de tu backend (`GEMINI_API_KEY`). **Nunca** la agregues al frontend ni la subas a GitHub.
 
-```bash
-curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=TU_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"contents":[{"parts":[{"text":"Hola"}]}]}'
-```
+---
 
-> **Límites gratis**: Revisa docs actuales (RPM, RPD). Por eso **una sola llamada compartida por latido**, no por usuario.
+### 🗄️ Paso 1: Crear la Base de Datos Gratuita
+
+El backend usa `@libsql/client` que soporta SQLite local y Turso en la nube, y también admite PostgreSQL (Supabase).
+
+#### Opción A: Turso (Recomendada - SQLite Edge Gratis)
+1. Entra a [turso.tech](https://turso.tech) e inicia sesión con GitHub.
+2. Crea una base de datos gratis:
+   - Nombre: `la-sesion`
+3. En el dashboard obtendrás:
+   - **Database URL**: `libsql://la-sesion-[usuario].turso.io`
+   - **Auth Token**: Haz clic en *Generate Token* y cópialo.
+4. Para migrar las tablas:
+   ```bash
+   # En tu máquina local, pon temporalmente en tu .env:
+   DATABASE_URL=libsql://la-sesion-[usuario].turso.io
+   DATABASE_AUTH_TOKEN=tu_token_aqui
+   npm run db:migrate
+   ```
+
+#### Opción B: Supabase (Postgres Gratis)
+1. Entra a [supabase.com](https://supabase.com) y crea un proyecto gratis.
+2. En **Project Settings** → **Database**, copia la URI de conexión (`postgresql://postgres:[password]@db...supabase.co:5432/postgres`).
+3. Ve a **SQL Editor** en el panel de Supabase y pega el contenido del archivo `server/src/db/migrations/001_init.sql` para crear las tablas en un solo clic.
+
+---
+
+### 🖥️ Paso 2: Desplegar el Backend (Node.js + WebSockets)
+
+El backend requiere un entorno persistente para mantener las conexiones de Socket.IO.
+
+#### Opción 1: Render (Free Web Service)
+1. Haz un push de tu repositorio a GitHub.
+2. Entra a [render.com](https://render.com) e inicia sesión con GitHub.
+3. Haz clic en **New +** → **Web Service**.
+4. Conecta tu repositorio `laSesion`.
+5. Configura:
+   - **Root Directory**: Deja vacío (o `.` para usar la raíz).
+   - **Environment**: `Node`
+   - **Build Command**: `npm ci && npm run build`
+   - **Start Command**: `npm start`
+   - **Plan**: `Free`
+6. En **Environment Variables**, añade:
+   - `NODE_ENV`: `production`
+   - `PORT`: `3000`
+   - `PUBLIC_URL`: La URL de tu Frontend (ej. `https://tu-proyecto.vercel.app`)
+   - `TRUST_PROXY`: `1`
+   - `ADMIN_PASSWORD`: `admin` (o tu clave deseada)
+   - `JWT_SECRET`: una cadena larga aleatoria (ej. `clave-secreta-sesion-2026-halloween`)
+   - `MESA_KEY`: `clave-del-proyector`
+   - `GEMINI_API_KEY`: Tu API key copiada de Google AI Studio.
+   - `GEMINI_MODEL`: `gemini-2.5-flash`
+   - `DATABASE_URL`: Tu URL de Turso o Supabase.
+   - `DATABASE_AUTH_TOKEN`: Tu token de Turso (si usas Turso).
+7. Haz clic en **Create Web Service**.
+8. **Evitar que se duerma en el evento (Render Free Cold Start):**
+   - Agrega un monitor gratuito en [UptimeRobot.com](https://uptimerobot.com) que haga ping cada 5 minutos a `https://tu-backend.onrender.com/health`.
+
+#### Opción 2: Koyeb o Railway (Alternativa más rápida / sin lag de inicio)
+- **Koyeb** ([koyeb.com](https://koyeb.com)): Ofrece un servicio gratuito muy rápido con soporte nativo de WebSockets y despliegue directo desde GitHub.
+  - Build command: `npm ci && npm run build`
+  - Run command: `npm start`
+  - Variables: Mismas que en Render.
+- **Railway** ([railway.app](https://railway.app)): Despliegue en 1 clic desde GitHub sin cold-starts; incluye $5 de crédito mensual gratuito renovable.
+
+---
+
+### ⚡ Paso 3: Desplegar el Frontend en Vercel
+
+1. Entra a [vercel.com](https://vercel.com) e inicia sesión con GitHub.
+2. Haz clic en **Add New...** → **Project**.
+3. Importa tu repositorio `laSesion`.
+4. En **Project Settings**:
+   - **Framework Preset**: Selecciona **Vite**.
+   - **Root Directory**: Haz clic en Edit y selecciona la carpeta **`client`**.
+   - **Build and Output Settings**:
+     - Build Command: `npm run build`
+     - Output Directory: `dist`
+5. **Configurar la conexión al Backend**:
+   Crea o añade en la raíz de la carpeta `client` un archivo `vercel.json` para redirigir las llamadas de `/api` y WebSockets hacia tu backend en Render/Koyeb:
+   ```json
+   {
+     "rewrites": [
+       { "source": "/api/(.*)", "destination": "https://tu-backend.onrender.com/api/$1" },
+       { "source": "/socket.io/(.*)", "destination": "https://tu-backend.onrender.com/socket.io/$1" },
+       { "source": "/(.*)", "destination": "/index.html" }
+     ]
+   }
+   ```
+   *(Reemplaza `https://tu-backend.onrender.com` por la URL real asignada a tu backend)*.
+6. Haz clic en **Deploy**. ¡En menos de un minuto tu frontend estará online con SSL gratis!
+
+---
+
+### 🌐 URLs Finales para el Evento
+
+Una vez desplegado:
+1. **Público (Celulares)**: `https://tu-proyecto.vercel.app/`
+2. **Proyector / Tablero**: `https://tu-proyecto.vercel.app/mesa?key=clave-del-proyector` (muestra el QR para que los invitados escaneen).
+3. **Admin / Director**: `https://tu-proyecto.vercel.app/admin` (ingresa con contraseña `admin`).
+
+---
 
 ---
 

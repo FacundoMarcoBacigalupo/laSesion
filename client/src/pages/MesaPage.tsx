@@ -150,16 +150,38 @@ export default function MesaPage() {
   const moodColor = mood === 'calmo' ? '#8b6cff' : mood === 'furioso' ? '#ff3b5c' : mood === 'hambriento' ? '#ff7a00' : '#2eea8a';
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', color: 'var(--tx)', fontFamily: 'system-ui' }} onClick={() => enterFs()}>
-      <div style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <canvas ref={qrRef} width={120} height={120} style={{ background: '#fff', borderRadius: 8 }} />
-          <div>
-            <h2 style={{ margin: 0 }}>La Sesión</h2>
-            <p style={{ color: 'var(--mu)', fontSize: 13 }}>Escaneá para entrar</p>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--tx)', fontFamily: 'system-ui' }} onClick={() => enterFs()}>
+      <div style={{ flex: 1, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Cabecera con QR destacado para que la gente entre desde sus celulares */}
+        <div style={{
+          display: 'flex',
+          gap: 20,
+          alignItems: 'center',
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid var(--l)',
+          padding: '16px 20px',
+          borderRadius: 16,
+          backdropFilter: 'blur(8px)'
+        }}>
+          <div style={{ background: '#fff', padding: 6, borderRadius: 12, display: 'inline-flex', boxShadow: '0 0 20px rgba(139,108,255,0.3)' }}>
+            <canvas ref={qrRef} width={130} height={130} style={{ display: 'block' }} />
           </div>
-          <div style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--mu)' }}>
-            Manos: {hands} / {total} · Cola: {queueSize}
+          <div>
+            <div style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 99, background: 'rgba(139,108,255,0.2)', color: 'var(--a)', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+              UNIRSE A LA SESIÓN
+            </div>
+            <h1 style={{ margin: 0, fontSize: 32, letterSpacing: '-0.02em' }}>La Sesión</h1>
+            <p style={{ color: 'var(--mu)', fontSize: 15, margin: '4px 0 0 0' }}>
+              📱 Escaneá con la cámara de tu celular para entrar
+            </p>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>
+              🖐️ Manos en el vaso: <span style={{ color: 'var(--a)' }}>{hands}</span> / {total}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--mu)' }}>
+              Cola de preguntas: {queueSize}
+            </div>
           </div>
         </div>
         <div className="meter"><i style={{ width: (hands / Math.max(1, total)) * 100 + '%' }} /></div>

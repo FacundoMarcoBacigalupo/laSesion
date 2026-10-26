@@ -28,17 +28,20 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="app">
+    <div className="app" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
       <h1 className="title">La Sesión</h1>
-      <p style={{ color: 'var(--mu)' }}>Ouija colectiva. SideQuest Halloween.</p>
-      <div className="card" style={{ marginTop: 20, maxWidth: 420 }}>
+      <p style={{ color: 'var(--mu)', margin: '0 auto' }}>Ouija colectiva. SideQuest Halloween.</p>
+      <div className="card" style={{ marginTop: 24, width: '100%', maxWidth: 400, textAlign: 'center' }}>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" maxLength={24}
-          style={{ padding: 12, borderRadius: 10, border: '1px solid var(--l)', background: '#000', color: '#fff', width: '100%' }} />
-        <label style={{ display: 'block', marginTop: 12, fontSize: 13, color: 'var(--mu)' }}>
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> Esta sesión usa datos de tu dispositivo (modelo, batería, zona horaria) para asustarte. Todo se borra al terminar.
+          style={{ padding: 14, borderRadius: 12, border: '1px solid var(--l)', background: '#000', color: '#fff', width: '100%', fontSize: 16, outline: 'none' }} />
+        <label className="consent-box">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+          <span style={{ fontSize: 13, color: 'var(--mu)', lineHeight: 1.45 }}>
+            Esta sesión usa datos de tu dispositivo (modelo, batería, zona horaria) para asustarte. Todo se borra al terminar.
+          </span>
         </label>
-        <button className="btn" style={{ marginTop: 12, width: '100%' }} onClick={enter}>Entrar</button>
-        {err && <p style={{ color: 'var(--r)', marginTop: 8 }}>{err}</p>}
+        <button className="btn" style={{ marginTop: 16, width: '100%' }} onClick={enter}>Entrar</button>
+        {err && <p style={{ color: 'var(--r)', marginTop: 12, fontSize: 14 }}>{err}</p>}
       </div>
     </div>
   );
