@@ -10,7 +10,8 @@ export function applyOffering(session: Session, userId: string, kind: OfferKind,
     pts += OFFER_MATCH_BONUS;
     text = 'ESO QUERIA. ' + offerLine(kind);
     // new want
-    newWant = OFFER_KINDS[Math.floor(Math.random() * OFFER_KINDS.length)] as OfferKind;
+    const nextKinds = OFFER_KINDS.filter((candidate) => candidate !== kind);
+    newWant = nextKinds[Math.floor(Math.random() * nextKinds.length)] as OfferKind;
     session.offerings.want = newWant;
   } else {
     text = offerLine(kind);

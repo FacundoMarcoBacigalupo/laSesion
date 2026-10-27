@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import { callGemini } from './gemini.client';
+import { callDeepSeek } from './gemini.client';
 import { SYS } from './system.prompt';
 import { buildPrompt } from './prompt.builder';
 import { schemaForPedido, geminiResponseSchema } from './schemas';
@@ -96,9 +96,9 @@ export class AiScheduler {
     let ok = false;
     let latencyMs = 0;
 
-    if (!useFallback && env.AI_ENABLED && env.GEMINI_API_KEY) {
+    if (!useFallback && env.AI_ENABLED && env.DEEPSEEK_API_KEY) {
       try {
-        const r = await callGemini(env.GEMINI_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
+        const r = await callDeepSeek(env.DEEPSEEK_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
         latencyMs = r.latencyMs;
         if (r.ok) {
           try {
@@ -120,7 +120,7 @@ export class AiScheduler {
         } else {
           // retry once on network error
           if (/network|fetch|abort/i.test(r.error ?? '')) {
-            const r2 = await callGemini(env.GEMINI_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
+            const r2 = await callDeepSeek(env.DEEPSEEK_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
             latencyMs = r2.latencyMs;
             if (r2.ok) {
               try {
@@ -153,6 +153,7 @@ export class AiScheduler {
       }
     } else {
       fallback = true;
+      logger.warn({ aiEnabled: env.AI_ENABLED, hasApiKey: !!env.DEEPSEEK_API_KEY, forced: s.ai.fallbackForced, breaker: this.breaker.isOpen(), rpm: this.callTimestamps.length }, 'AI fallback selected before API call');
     }
 
     if (!ok) {

@@ -1,16 +1,18 @@
 import { RESTORE_MAX_AGE_MS, SNAPSHOT_MS } from '@sesion/shared';
 import { saveSnapshot, loadLatestSnapshot } from '../db/repos/snapshots';
-import { SessionStore } from '../domain/session';
+import type { SessionStore } from '../domain/session';
 import { logger } from '../utils/logger';
 
 let timer: NodeJS.Timeout | null = null;
 
 export function startPersistence(store: SessionStore): void {
-  timer = setInterval(async () => {
+  timer = setInterval(() => {
+    void (async () => {
     try {
       const snap = store.snapshot();
       await saveSnapshot(store.session.id, JSON.stringify(snap));
     } catch (e) { logger.warn({ err: e }, 'snapshot'); }
+    })();
   }, SNAPSHOT_MS);
 }
 

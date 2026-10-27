@@ -23,7 +23,12 @@ async function main() {
   const dir = findMigrationsDir();
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
   for (const f of files) {
-    const sql = fs.readFileSync(path.join(dir, f), 'utf8');
+    let sql = fs.readFileSync(path.join(dir, f), 'utf8');
+    if (process.env.DATABASE_URL?.startsWith('postgres')) {
+      sql = sql
+        .replace(/\bINTEGER PRIMARY KEY AUTOINCREMENT\b/g, 'BIGSERIAL PRIMARY KEY')
+        .replace(/\bINTEGER\b/g, 'BIGINT');
+    }
     // split statements by semicolon (naive but ok for our migrations)
     const stmts = sql.split(/;\s*\n/).map((s) => s.trim()).filter(Boolean);
     for (const s of stmts) {

@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-dotenv.config();
+// El proceso puede arrancar desde la raíz o desde server/. Cargamos ambos
+// lugares para que la configuración no dependa del directorio de ejecución.
+const serverDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(serverDir, '../../../.env'), override: true });
+dotenv.config({ path: path.resolve(serverDir, '../../.env'), override: false });
+dotenv.config({ override: false });
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -11,8 +18,9 @@ const EnvSchema = z.object({
   ADMIN_PASSWORD: z.string().min(1).default('cambiame'),
   JWT_SECRET: z.string().min(8).default('dev-secret-change-me-please-long'),
   MESA_KEY: z.string().min(1).default('clave-del-proyector'),
-  GEMINI_API_KEY: z.string().optional().default(''),
-  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  DEEPSEEK_API_KEY: z.string().optional().default(''),
+  DEEPSEEK_MODEL: z.string().default('deepseek-chat'),
+  DEEPSEEK_BASE_URL: z.string().url().default('https://api.deepseek.com'),
   AI_ENABLED: z.coerce.boolean().default(true),
   AI_HEARTBEAT_MS: z.coerce.number().default(9000),
   AI_MIN_GAP_MS: z.coerce.number().default(2500),
@@ -35,10 +43,13 @@ function load(): Env {
     process.exit(1);
   }
   if (parsed.data.NODE_ENV === 'production') {
-    if (!parsed.data.GEMINI_API_KEY) console.warn('GEMINI_API_KEY missing');
+    if (!parsed.data.DEEPSEEK_API_KEY) console.warn('DEEPSEEK_API_KEY missing');
     if (parsed.data.ADMIN_PASSWORD === 'cambiame') console.warn('ADMIN_PASSWORD default in prod');
   }
   return parsed.data;
 }
 
 export const env = load();
+
+// Nunca imprime la clave: solo confirma si el proceso la recibió.
+console.info(`[ai] DeepSeek ${env.AI_ENABLED && env.DEEPSEEK_API_KEY.trim() ? 'configurado' : 'deshabilitado o sin API key'} (enabled=${env.AI_ENABLED}, key=${env.DEEPSEEK_API_KEY.trim() ? 'present' : 'missing'}, model=${env.DEEPSEEK_MODEL})`);

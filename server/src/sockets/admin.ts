@@ -35,7 +35,7 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
       if (!v.ok) { ack?.({ ok: false, error: v.error }); return; }
       const data = v.data as any;
       let text: string = data.text ?? '';
-      let quickId = data.quickId;
+      const quickId = data.quickId;
       if (quickId !== undefined) {
         const qs = ['¿Quién se va primero?', '¿Hay alguien más acá?', '¿Cómo muero?', '¿Qué hora es?', '¿Cuánto me queda?'];
         text = qs[quickId] ?? '';
@@ -70,12 +70,9 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
     socket.on(EV.DIR_READ_QUEUE, (_p: any, ack?: (r: any) => void) => {
       const q = readRandomQuestionSafe(store);
       if (!q) { ack?.({ ok: false, error: 'empty' }); return; }
-      const hh = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-      const words = ['LO SABES', 'NO VOLVIO', 'CALLATE', 'MIRA DETRAS'];
-      const w = words[Math.floor(Math.random() * words.length)];
-      const text = `${q.name} preguntó: ${q.text}`;
-      const say = `${w}. A las ${hh} otro preguntó lo mismo. No volvió.`;
-      emitSayAll(io, store, say, text, store.session.mood, false);
+      // Toda pregunta pública se responde mediante la IA; el fallback solo
+      // actúa si el proveedor no está disponible.
+      scheduler.enqueue('responder_pregunta', 1, { nombre: q.name }, true, q.text);
       ack?.({ ok: true });
     });
 

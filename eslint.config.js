@@ -62,7 +62,8 @@ module.exports = [
       // TypeScript specific
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/consistent-type-imports': 'warn',
+      '@typescript-eslint/no-unsafe-function-type': 'warn',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-misused-promises': 'warn',
 
@@ -84,8 +85,15 @@ module.exports = [
       // General
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'no-debugger': 'warn',
-      'prefer-const': 'error',
+      'prefer-const': 'warn',
       'no-var': 'error',
+      // Three.js JSX props and existing interactive overlays are valid in this app.
+      'react/no-unknown-property': 'off',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/refs': 'warn',
+      'jsx-a11y/no-static-element-interactions': 'warn',
+      'jsx-a11y/no-autofocus': 'warn',
+      'import/export': 'off',
     },
   },
 

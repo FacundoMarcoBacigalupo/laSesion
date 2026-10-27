@@ -21,10 +21,12 @@ services:
         sync: false
       - key: MESA_KEY
         sync: false
-      - key: GEMINI_API_KEY
+      - key: DEEPSEEK_API_KEY
         sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com
       - key: AI_ENABLED
         value: "true"
       - key: AI_HEARTBEAT_MS

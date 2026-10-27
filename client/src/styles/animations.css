@@ -1,5 +1,38 @@
-@keyframes hb{0%,70%,100%{scale:1}14%{scale:1.1}28%{scale:1.01}42%{scale:1.13}}
-@keyframes sp{to{transform:rotate(360deg)}}
-@keyframes sh{50%{transform:translateX(3px)}}
-@keyframes bl{50%{opacity:0}}
-@keyframes fl2{50%{transform:translateY(-4px);opacity:.25}}
+@keyframes hb {
+  0%, 70%, 100% { transform: scale(1); }
+  14% { transform: scale(1.08); }
+  28% { transform: scale(1.02); }
+  42% { transform: scale(1.12); }
+}
+
+@keyframes sp {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sh {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px) rotate(-1deg); }
+  75% { transform: translateX(3px) rotate(1deg); }
+}
+
+@keyframes bl {
+  50% { opacity: 0; }
+}
+
+@keyframes fl2 {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(-6px); opacity: 0.3; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { filter: drop-shadow(0 0 15px rgba(139, 108, 255, 0.4)); }
+  50% { filter: drop-shadow(0 0 30px rgba(139, 108, 255, 0.8)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

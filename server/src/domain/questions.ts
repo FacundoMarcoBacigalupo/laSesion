@@ -8,7 +8,9 @@ export function enqueueQuestion(session: Session, userId: string, name: string, 
   const mod = moderateText(raw);
   if (!mod.ok) return { ok: false, queued: false, reason: mod.reason };
   const text = mod.text.slice(0, QUESTION_MAX);
-  const mine = session.queue.filter((q) => q.userId === userId && q.state === 'queued').length;
+  // El límite es por sesión y por usuario: responder o borrar una pregunta
+  // no debe permitir esquivar el máximo de tres.
+  const mine = [...session.queue, ...session.history].filter((q) => q.userId === userId).length;
   if (mine >= QUEUE_PER_USER) return { ok: false, queued: false, reason: 'limit' };
   const q: Question = { id: newId(10), userId, name, text, at: now(), state: 'queued' };
   session.queue.push(q);

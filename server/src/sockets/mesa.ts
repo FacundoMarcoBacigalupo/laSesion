@@ -1,6 +1,4 @@
 import { EV } from '@sesion/shared';
-import { MesaAuthSchema } from '@sesion/shared';
-import { validate } from '@sesion/shared';
 import { authHandshakeMesa } from './middleware';
 import type { SessionStore } from '../domain/session';
 

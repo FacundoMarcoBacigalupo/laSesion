@@ -12,8 +12,8 @@ export default function CupScene({ holding, onStart, onStop }: { holding: boolea
       >
         <ambientLight intensity={0.8} />
         <directionalLight position={[2, 5, 2]} intensity={2.0} color="#ffffff" />
-        <pointLight position={[-2, 3, -1]} intensity={1.5} color="#8b6cff" />
-        <pointLight position={[0, -0.5, 0]} intensity={holding ? 2.5 : 0.8} color={holding ? '#ff3b5c' : '#8b6cff'} />
+        <pointLight position={[-2, 3, -1]} intensity={1.5} color="#d8d0ca" />
+        <pointLight position={[0, -0.5, 0]} intensity={holding ? 2.5 : 0.8} color={holding ? '#ff3b5c' : '#9b1927'} />
         <Cup holding={holding} onStart={onStart} onStop={onStop} />
       </Canvas>
     </div>
@@ -59,8 +59,8 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       <mesh position={[0, 0, 0]}>
         <cylinderGeometry args={[0.55, 0.4, 0.9, 48, 1, true]} />
         <meshPhysicalMaterial
-          color={holding ? '#ffb3c0' : '#efeaf7'}
-          emissive={holding ? '#ff3b5c' : '#8b6cff'}
+          color={holding ? '#ffb3c0' : '#ded8d2'}
+          emissive={holding ? '#ff3b5c' : '#571018'}
           emissiveIntensity={holding ? 0.6 : 0.15}
           transmission={0.92}
           opacity={0.85}
@@ -78,8 +78,8 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       <mesh position={[0, 0.45, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.55, 48]} />
         <meshPhysicalMaterial
-          color={holding ? '#ffb3c0' : '#ffffff'}
-          emissive={holding ? '#ff3b5c' : '#8b6cff'}
+          color={holding ? '#ffb3c0' : '#f4efea'}
+          emissive={holding ? '#ff3b5c' : '#571018'}
           emissiveIntensity={holding ? 0.8 : 0.25}
           transmission={0.85}
           opacity={0.9}
@@ -94,7 +94,7 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       <mesh position={[0, 0.45, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.55, 0.025, 16, 48]} />
         <meshStandardMaterial
-          color={holding ? '#ff3b5c' : '#c3b1e1'}
+           color={holding ? '#ff3b5c' : '#c3b1aa'}
           roughness={0.15}
           metalness={0.4}
         />
@@ -104,7 +104,7 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       <mesh position={[0, -0.45, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.4, 0.02, 16, 48]} />
         <meshStandardMaterial
-          color={holding ? '#ff3b5c' : '#7b61d6'}
+           color={holding ? '#ff3b5c' : '#6f4b50'}
           roughness={0.2}
           metalness={0.3}
         />

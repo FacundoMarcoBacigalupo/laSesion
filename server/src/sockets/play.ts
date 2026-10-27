@@ -1,4 +1,4 @@
-import { EV } from '@sesion/shared';
+import { EV, MAX_PARTICIPANTS } from '@sesion/shared';
 import { JoinSchema, HoldSchema, VisibilitySchema, AskSchema, VoteSchema, StrokeSchema, SignDoneSchema, OfferSchema, ShakeSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
 import { getBucket, ipOfSocket, rateBuckets } from './middleware';
@@ -48,6 +48,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
         socket.data.userId = user.id;
         socket.join(user.id);
       } else {
+        if (store.totalCount() >= MAX_PARTICIPANTS) { ack?.({ ok: false, error: 'session_full' }); return; }
         user = createUser({ name: data.name, consent: data.consent, device: data.device, ip, userAgent: ua, resumeToken: data.resumeToken });
         // keep token from createUser (new)
         store.session.users.set(user.id, user);
@@ -131,12 +132,16 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       if (!mod.ok) { ack?.({ ok: false, error: mod.reason }); return; }
       const res = enqueueQuestion(store.session, uid, u.name, mod.text);
       if (!res.ok) { ack?.({ ok: false, error: res.reason }); return; }
-      if (res.question) {
-        upsertQuestion(store.session.id, res.question).catch(() => {});
-        logEvent(store.session.id, uid, 'ask', { text: res.question.text }).catch(() => {});
-      }
-      // notify mesa queue
-      io.of('/mesa').emit(EV.MESA_QUEUE, { size: store.session.queue.filter((q) => q.state === 'queued').length });
+       if (res.question) {
+         // Las preguntas del jugador se responden inmediatamente: no pasan
+         // por la cola pública ni requieren que el director las lea.
+         res.question.state = 'answered';
+         store.session.queue = store.session.queue.filter((q) => q.id !== res.question!.id);
+         store.session.history.push(res.question);
+         upsertQuestion(store.session.id, res.question).catch(() => {});
+         logEvent(store.session.id, uid, 'ask', { text: res.question.text }).catch(() => {});
+         scheduler.enqueue('responder_pregunta', 1, { nombre: u.name }, true, res.question.text);
+       }
       io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
       ack?.({ ok: true, queued: true });
     });

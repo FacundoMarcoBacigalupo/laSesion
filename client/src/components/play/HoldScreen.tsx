@@ -8,7 +8,7 @@ export default function HoldScreen({ holding, onStart, onStop }: Props) {
           <div className="glow" />
           <div className="cup" onPointerDown={(e) => { (e.target as any).setPointerCapture?.(e.pointerId); onStart(); }} onPointerUp={onStop} onPointerCancel={onStop}>
             <div className="in" /><div className="hl" />
-            <span>{holding ? 'LATIENDO\n♥' : 'TOCÁ Y\nMANTENÉ'}</span>
+            <span>{holding ? 'LATIENDO' : 'TOCÁ Y\nMANTENÉ'}</span>
           </div>
         </div>
       </div>

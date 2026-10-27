@@ -5,9 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "npm run migrate && tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json && node scripts/copy-migrations.mjs",
-    "start": "node dist/index.js",
+    "start": "npm run migrate && node dist/index.js",
     "migrate": "tsx src/db/migrate.ts",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
@@ -16,6 +16,7 @@
   "dependencies": {
     "@sesion/shared": "*",
     "@libsql/client": "0.14.0",
+    "pg": "8.13.1",
     "compression": "1.7.5",
     "cookie-parser": "1.4.7",
     "cors": "2.8.5",
@@ -37,6 +38,7 @@
     "@types/express": "5.0.0",
     "@types/jsonwebtoken": "9.0.7",
     "@types/node": "22.9.0",
+    "@types/pg": "8.11.10",
     "tsx": "4.19.2",
     "typescript": "5.6.3",
     "vitest": "2.1.4"

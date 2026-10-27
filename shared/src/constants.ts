@@ -1,6 +1,7 @@
 export const NAME_MAX = 24;
 export const QUESTION_MAX = 80;
 export const QUEUE_PER_USER = 3;
+export const MAX_PARTICIPANTS = 10;
 export const HOLD_RELEASE_GHOST_MS = 4000;
 export const HIDDEN_GHOST_MS = 3000;
 export const DISCONNECT_GHOST_MS = 5000;
