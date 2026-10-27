@@ -8,11 +8,13 @@
 
 ## 📍 Rutas Principales de la Aplicación
 
-| Ruta | Rol / Destino | Descripción |
-| :--- | :--- | :--- |
-| **`/`** *(redirige a `/play`)* | 📱 **Público (Celulares)** | Entrada de los participantes: colocan su nombre, aceptan el consentimiento, sostienen el vaso 3D, mandan preguntas a la cola, votan, firman pactos y participan en el exorcismo. |
-| **`/mesa`** *(o `/mesa?key=clave-del-proyector`)* | 📽️ **Pantalla / Proyector** | El tablero Ouija colectivo gigante con el **código QR** para escanear, letras que se encienden al teclear el espíritu, caldero de ofrendas con física en tiempo real y medidor de exorcismo. |
-| **`/admin`** *(login en `/admin/login`)* | 🎛️ **Panel del Director / Admin** | El centro de control: monitor de usuarios, control de fases, preguntas rápidas, disparador de víctima, pactos, calibración de IA y contraseña predeterminada (`admin`). |
+**Dominio en producción**: [https://lasesion.mythf.site/](https://lasesion.mythf.site/)
+
+| Ruta | Enlace directo | Rol / Destino | Descripción |
+| :--- | :--- | :--- | :--- |
+| **`/`** *(redirige a `/play`)* | [lasesion.mythf.site/](https://lasesion.mythf.site/) | 📱 **Público (Celulares)** | Entrada de los participantes: colocan su nombre, aceptan el consentimiento, sostienen el vaso 3D, mandan preguntas a la cola, votan, firman pactos y participan en el exorcismo. |
+| **`/mesa`** | [lasesion.mythf.site/mesa](https://lasesion.mythf.site/mesa) *(o `?key=clave-del-proyector`)* | 📽️ **Pantalla / Proyector** | El tablero Ouija colectivo gigante con el **código QR** para escanear, letras que se encienden al teclear el espíritu, caldero de ofrendas con física en tiempo real y medidor de exorcismo. |
+| **`/admin`** | [lasesion.mythf.site/admin](https://lasesion.mythf.site/admin) *(login en `/admin/login`)* | 🎛️ **Panel del Director / Admin** | El centro de control: monitor de usuarios, control de fases, preguntas rápidas, disparador de víctima, pactos, calibración de IA y contraseña predeterminada (`admin`). |
 
 ---
 
