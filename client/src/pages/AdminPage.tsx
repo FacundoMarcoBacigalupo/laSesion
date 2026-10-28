@@ -4,6 +4,7 @@ import { useGSAP } from '@gsap/react';
 import { useAdminStore } from '../store/adminStore';
 import { useSocket } from '../hooks/useSocket';
 import { api } from '../lib/api';
+import BloodWebs from '../components/ui/BloodWebs';
 
 const demo = new URLSearchParams(window.location.search).get('demo') === '1';
 
@@ -27,6 +28,7 @@ const MOODS = [
 export default function AdminPage() {
   const admin = useAdminStore();
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [mockActive, setMockActive] = useState(false);
   const [sayText, setSayText] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
 
@@ -45,9 +47,10 @@ export default function AdminPage() {
 
   const s = admin.state;
 
-  function cmd(ev: string, payload?: any) {
+  function cmd(ev: string, payload?: any, ack?: (r: any) => void) {
     socketR.current?.emit?.(ev, payload ?? {}, (r: any) => {
       if (r && !r.ok) console.warn(r.error);
+      ack?.(r);
     });
   }
 
@@ -66,6 +69,11 @@ export default function AdminPage() {
   if (authed === false) {
     return (
       <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', textAlign: 'center' }}>
+        <BloodWebs />
+      <div style={{ marginBottom: 12 }}>
+        <button className="btn" onClick={() => cmd('dir:mock', {}, (r: any) => setMockActive(!!r?.active))}>{mockActive ? 'Parar datos mockeados' : 'Activar datos mockeados'}</button>
+      </div>
+
         <div className="card" style={{ maxWidth: 360, width: '100%' }}>
           <p style={{ marginBottom: 16 }}>Acceso restringido a directores.</p>
           <a href="/admin/login" className="btn" style={{ width: '100%', textDecoration: 'none' }}>
@@ -86,6 +94,10 @@ export default function AdminPage() {
 
   return (
     <div ref={containerRef} className="app" style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+      <BloodWebs />
+      <div style={{ marginBottom: 12 }}>
+        <button className="btn" onClick={() => cmd('dir:mock')}>Activar datos mockeados</button>
+      </div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>

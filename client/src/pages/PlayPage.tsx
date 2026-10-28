@@ -43,7 +43,7 @@ export default function PlayPage() {
   const session = useSessionStore();
   const socketRef = useRef<any>(null);
 
-  const [screen, setScreen] = useState<'hold' | 'ask' | 'vote' | 'chosen' | 'pact' | 'offerings' | 'exorcism'>('hold');
+  const [screen, setScreen] = useState<'hold' | 'ask' | 'vote' | 'chosen' | 'pact' | 'offerings' | 'exorcism' | 'pacto'>('hold');
   const [chosenWill, setChosenWill] = useState('');
   const [pact, setPact] = useState<any>(null);
   const [question, setQuestion] = useState('');
@@ -58,7 +58,63 @@ export default function PlayPage() {
   const [exorcismActive, setExorcismActive] = useState(false);
   const [ghost, setGhost] = useState(false);
 
+  const [pactoName, setPactoName] = useState(() => localStorage.getItem('pactoName') || me.name || '');
+  const [pactoSigned, setPactoSigned] = useState(() => localStorage.getItem('pactoSigned') === '1');
+  const [pactoSignature, setPactoSignature] = useState(() => localStorage.getItem('pactoSignature') || '');
+  const pactoCanvasRef = useRef<HTMLCanvasElement>(null);
+  const pactoDrawingRef = useRef(false);
+  const pactoLastRef = useRef<[number, number] | null>(null);
+  useEffect(() => { if (!pactoName && me.name) setPactoName(me.name); }, [me.name]);
+
   const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const c = pactoCanvasRef.current;
+    if (!c) return;
+    const ctx = c.getContext('2d')!;
+    ctx.strokeStyle = '#ffb3c0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  }, []);
+
+  function pactoStart(e: React.PointerEvent<HTMLCanvasElement>) {
+    const c = pactoCanvasRef.current!;
+    const ctx = c.getContext('2d')!;
+    ctx.strokeStyle = '#ffb3c0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    pactoDrawingRef.current = true;
+    c.setPointerCapture(e.pointerId);
+    pactoLastRef.current = [e.nativeEvent.offsetX, e.nativeEvent.offsetY];
+  }
+  function pactoMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!pactoDrawingRef.current || !pactoLastRef.current) return;
+    const c = pactoCanvasRef.current!;
+    const ctx = c.getContext('2d')!;
+    const [lx, ly] = pactoLastRef.current;
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY); ctx.stroke();
+    pactoLastRef.current = [e.nativeEvent.offsetX, e.nativeEvent.offsetY];
+  }
+  function pactoStop() { pactoDrawingRef.current = false; pactoLastRef.current = null; }
+  function pactoClear() {
+    const c = pactoCanvasRef.current!;
+    const ctx = c.getContext('2d')!;
+    ctx.clearRect(0, 0, c.width, c.height);
+  }
+  function pactoSign() {
+    const c = pactoCanvasRef.current!;
+    const png = c.toDataURL('image/png');
+    localStorage.setItem('pactoSigned', '1');
+    localStorage.setItem('pactoName', pactoName.trim() || 'Invitado');
+    localStorage.setItem('pactoSignature', png);
+    setPactoSignature(png);
+    setPactoSigned(true);
+    socketRef.current?.emit('pact:standalone', { png, name: pactoName.trim() || 'Invitado' });
+  }
+  function pactoDownload() {
+    const c = document.createElement('canvas');
+    c.width = 600; c.height = 520;
+    drawContract(c, ['Acepto caminar en la oscuridad cuando el espíritu lo reclame.', 'Entrego mi nombre y mi firma al círculo.', 'No romperé el pacto sellado en sangre digital.', 'Acepto las penalidades que el espíritu imponga.'], pactoName.trim() || 'Invitado', pactoSignature || localStorage.getItem('pactoSignature') || '');
+  }
+  function pactoReset() {
+    localStorage.removeItem('pactoSigned'); localStorage.removeItem('pactoName'); localStorage.removeItem('pactoSignature');
+    setPactoSigned(false); setPactoSignature(''); pactoClear();
+  }
   const panelRef = useRef<HTMLDivElement>(null);
   const isDrawingRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -331,7 +387,7 @@ export default function PlayPage() {
       </div>
 
       {/* Navigation tabs */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, alignItems: 'center' }}>
         <nav className="nav-tabs" style={{ width: '100%', justifyContent: 'center' }}>
           <button 
             id="tabHold"
@@ -366,8 +422,44 @@ export default function PlayPage() {
               Ofrendas
             </button>
           )}
+          <button
+            id="tabPacto"
+            className={`nav-tab ${screen === 'pacto' ? 'active' : ''}`}
+            onClick={() => setScreen('pacto')}
+          >
+            Pacto
+          </button>
         </nav>
       </div>
+
+      {screen === 'pacto' && (
+        <div className="card screen-panel" style={{ border: '1px solid rgba(255,59,92,0.3)' }}>
+          <h3 style={{ margin: 0, fontSize: 18, color: 'var(--r)' }}>PACTO CON EL ESPÍRITU</h3>
+          <div style={{ background: 'rgba(0,0,0,0.6)', padding: 14, borderRadius: 12, border: '1px solid var(--l)', fontSize: 12, lineHeight: 1.5, textAlign: 'left', marginBottom: 14, marginTop: 12 }}>
+            {['Acepto caminar en la oscuridad cuando el espíritu lo reclame.', 'Entrego mi nombre y mi firma al círculo.', 'No romperé el pacto sellado en sangre digital.', 'Acepto las penalidades que el espíritu imponga.'].map((c, i) => (
+              <p key={i} style={{ marginBottom: 6 }}>{i + 1}. {c}</p>
+            ))}
+          </div>
+          {!pactoSigned && (
+            <>
+              <input className="input-dark" value={pactoName} disabled style={{ width: '100%', marginBottom: 12, opacity: 0.8 }} />
+              <canvas ref={pactoCanvasRef} width={320} height={100} onPointerDown={pactoStart} onPointerMove={pactoMove} onPointerUp={pactoStop} onPointerCancel={pactoStop} style={{ width: '100%', height: 100, background: '#050308', border: '1.5px dashed var(--r)', borderRadius: 10, touchAction: 'none', display: 'block', cursor: 'crosshair' }} />
+              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                <button className="btn ghost" style={{ flex: 1 }} onClick={pactoClear}>Borrar</button>
+                <button className="btn danger" style={{ flex: 2 }} onClick={pactoSign}>Firmar en sangre</button>
+              </div>
+            </>
+          )}
+          {pactoSigned && (
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#5dffa8', fontWeight: 700, marginBottom: 10 }}>PACTO SELLADO. YA NO HAY SALVACIÓN.</p>
+              {pactoSignature && <img src={pactoSignature} alt="firma" style={{ background: '#000', borderRadius: 8, width: '100%', maxWidth: 260, border: '1px solid var(--l)', display: 'block', margin: '0 auto 12px' }} />}
+              <button className="btn" style={{ width: '100%' }} onClick={pactoDownload}>Descargar el pacto</button>
+              <button className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={pactoReset}>Firmar de nuevo</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* HOLD SCREEN */}
       {screen === 'hold' && (

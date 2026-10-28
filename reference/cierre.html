@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>La Sesión · El Círculo se ha Cerrado</title>
+  <style>
+    :root {
+      --font-mono: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --font-serif: Georgia, 'Times New Roman', serif;
+      --bg: #050505;
+      --a: #9b1927;
+      --a-glow: rgba(155, 25, 39, 0.45);
+      --r: #d32f3f;
+      --r-glow: rgba(211, 47, 63, 0.5);
+      --blood: #6b0c16;
+      --tx: #c5c1bc;
+      --tx-bright: #e8e1d8;
+      --mu: #706d69;
+      --l: rgba(255, 255, 255, 0.08);
+      --p: rgba(20, 10, 12, 0.5);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: var(--bg);
+      color: var(--tx);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Fondo oscuro con tinte de sangre y viñeta */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(155, 25, 39, 0.22), transparent 60%),
+        radial-gradient(circle at 80% 85%, rgba(107, 12, 22, 0.25), transparent 50%),
+        radial-gradient(circle at 15% 75%, rgba(30, 5, 8, 0.4), transparent 50%),
+        radial-gradient(ellipse at center, transparent 35%, rgba(0, 0, 0, 0.88) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.25) 3px);
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.6;
+    }
+
+    /* Telarañas SVG en las esquinas */
+    .web {
+      position: fixed;
+      width: clamp(140px, 20vw, 260px);
+      height: clamp(140px, 20vw, 260px);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.22;
+      filter: drop-shadow(0 0 6px rgba(155, 25, 39, 0.3));
+    }
+    .web-tl { top: 0; left: 0; }
+    .web-tr { top: 0; right: 0; transform: scaleX(-1); }
+    .web-bl { bottom: 0; left: 0; transform: scaleY(-1); }
+    .web-br { bottom: 0; right: 0; transform: scale(-1); }
+
+    .container {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      max-width: 900px;
+      padding: 40px 24px;
+      text-align: center;
+      margin: auto;
+    }
+
+    .gothic-border {
+      position: absolute;
+      inset: 12px;
+      border: 1px solid rgba(155, 25, 39, 0.3);
+      box-shadow: inset 0 0 45px rgba(90, 10, 18, 0.2);
+      pointer-events: none;
+    }
+
+    .mark-symbol {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--r);
+      color: var(--r);
+      font-family: var(--font-serif);
+      font-size: 42px;
+      text-shadow: 0 0 20px var(--r-glow);
+      background: rgba(10, 5, 6, 0.8);
+      animation: pulseDeath 3s ease-in-out infinite;
+    }
+    @keyframes pulseDeath {
+      0%, 100% { box-shadow: 0 0 15px rgba(211, 47, 63, 0.2); opacity: 0.9; }
+      50% { box-shadow: 0 0 30px var(--r-glow); opacity: 1; }
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--r);
+      margin-bottom: 12px;
+      text-indent: 0.28em;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(38px, 7vw, 72px);
+      letter-spacing: 0.05em;
+      line-height: 1.1;
+      color: var(--tx-bright);
+      margin-bottom: 16px;
+      text-shadow: 0 0 35px rgba(211, 47, 63, 0.45);
+    }
+    h1 span {
+      color: var(--r);
+      text-shadow: 0 0 25px var(--r-glow);
+    }
+
+    .quote {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: clamp(15px, 2.4vw, 19px);
+      color: var(--tx);
+      max-width: 660px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+    }
+    .quote b {
+      color: var(--r);
+    }
+
+    /* Grilla de cierre */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 34px;
+      text-align: left;
+    }
+
+    .card {
+      background: rgba(12, 6, 8, 0.7);
+      border: 1px solid rgba(155, 25, 39, 0.25);
+      border-radius: 4px;
+      padding: 20px;
+      position: relative;
+      transition: all 0.25s ease;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 4px; height: 100%;
+      background: var(--blood);
+      transition: background 0.25s;
+    }
+    .card:hover {
+      border-color: var(--r);
+      transform: translateY(-2px);
+      box-shadow: 0 0 25px rgba(155, 25, 39, 0.25);
+    }
+    .card:hover::before {
+      background: var(--r);
+    }
+    .card .icon {
+      color: var(--r);
+      font-size: 20px;
+      margin-bottom: 8px;
+      font-family: var(--font-serif);
+    }
+    .card h3 {
+      font-family: var(--font-serif);
+      font-size: 16px;
+      color: var(--tx-bright);
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+    }
+    .card p {
+      font-size: 12px;
+      color: var(--mu);
+      line-height: 1.5;
+    }
+
+    /* Veredicto de la Noche */
+    .verdict {
+      background: rgba(18, 8, 11, 0.75);
+      border: 1px solid rgba(155, 25, 39, 0.35);
+      padding: 20px 28px;
+      max-width: 640px;
+      margin: 0 auto 34px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .verdict b {
+      color: var(--r);
+    }
+
+    /* Acciones Finales (Sin GitHub) */
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      border: 1px solid var(--r);
+      background: rgba(155, 25, 39, 0.2);
+      color: var(--tx-bright);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(155, 25, 39, 0.3);
+      transition: all 0.2s ease;
+    }
+    .btn-action:hover {
+      background: var(--r);
+      color: #fff;
+      box-shadow: 0 0 35px var(--r-glow);
+      transform: scale(1.02);
+    }
+    .btn-action.ghost {
+      background: transparent;
+      border-color: rgba(255, 255, 255, 0.12);
+      color: var(--mu);
+      box-shadow: none;
+    }
+    .btn-action.ghost:hover {
+      color: var(--tx-bright);
+      border-color: var(--r);
+      background: rgba(155, 25, 39, 0.1);
+    }
+
+    footer {
+      color: var(--mu);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+
+    /* Botón de audio oscuro */
+    .sound-pill {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: rgba(12, 6, 8, 0.9);
+      border: 1px solid rgba(155, 25, 39, 0.4);
+      color: var(--mu);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+    .sound-pill:hover, .sound-pill.active {
+      color: var(--r);
+      border-color: var(--r);
+      box-shadow: 0 0 15px rgba(211, 47, 63, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Telarañas góticas -->
+  <svg class="web web-tl" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+    <path d="M0,0 L100,0 M0,0 L0,100 M0,0 L90,40 M0,0 L75,75 M0,0 L40,90" stroke="#d32f3f" stroke-width="0.8"/>
+    <path d="M15,0 Q18,18 0,15 M30,0 Q35,35 0,30 M50,0 Q60,60 0,50 M75,0 Q88,88 0,75 M100,0 Q105,105 0,100" stroke="#d32f3f" stroke-width="0.6"/>
+  </svg>
+  <svg class="web web-tr" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+    <path d="M0,0 L100,0 M0,0 L0,100 M0,0 L90,40 M0,0 L75,75 M0,0 L40,90" stroke="#d32f3f" stroke-width="0.8"/>
+    <path d="M15,0 Q18,18 0,15 M30,0 Q35,35 0,30 M50,0 Q60,60 0,50 M75,0 Q88,88 0,75 M100,0 Q105,105 0,100" stroke="#d32f3f" stroke-width="0.6"/>
+  </svg>
+  <svg class="web web-bl" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+    <path d="M0,0 L100,0 M0,0 L0,100 M0,0 L90,40 M0,0 L75,75 M0,0 L40,90" stroke="#d32f3f" stroke-width="0.8"/>
+    <path d="M15,0 Q18,18 0,15 M30,0 Q35,35 0,30 M50,0 Q60,60 0,50 M75,0 Q88,88 0,75 M100,0 Q105,105 0,100" stroke="#d32f3f" stroke-width="0.6"/>
+  </svg>
+  <svg class="web web-br" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+    <path d="M0,0 L100,0 M0,0 L0,100 M0,0 L90,40 M0,0 L75,75 M0,0 L40,90" stroke="#d32f3f" stroke-width="0.8"/>
+    <path d="M15,0 Q18,18 0,15 M30,0 Q35,35 0,30 M50,0 Q60,60 0,50 M75,0 Q88,88 0,75 M100,0 Q105,105 0,100" stroke="#d32f3f" stroke-width="0.6"/>
+  </svg>
+
+  <div class="container">
+    <div class="gothic-border"></div>
+
+    <div class="mark-symbol">Ω</div>
+    <div class="badge">El Círculo se ha Cerrado</div>
+    <h1>La <span>Despedida</span></h1>
+    
+    <p class="quote">
+      "Las manos han soltado el vaso. <b>La presencia se disuelve en el silencio digital.</b><br>
+      Todo lo manifestado esta noche queda sellado."
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="icon">†</div>
+        <h3>La Víctima Elegida</h3>
+        <p>El pacto fue consumado con su propia firma. Su testamento perdurará en los registros del servidor.</p>
+      </div>
+
+      <div class="card">
+        <div class="icon">†</div>
+        <h3>El Exorcismo</h3>
+        <p>La sincronía del acelerómetro de la sala elevó la energía colectiva hasta expulsar al espíritu.</p>
+      </div>
+
+      <div class="card">
+        <div class="icon">†</div>
+        <h3>La Ilusión Rota</h3>
+        <p>No hubo brujería: solo WebSockets, Inteligencia Artificial y datos transparentes de tu propio celular.</p>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <p style="color: var(--mu); font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px;">Veredicto Final</p>
+      <p><b>Ningún participante escapó invicto.</b> El código concluyó su ejecución. La mesa descansa en paz.</p>
+    </div>
+
+    <div class="actions">
+      <a href="https://lasesion.mythf.site/" class="btn-action">
+        <span>🔄</span> Volver al Círculo
+      </a>
+      <a href="https://lasesion.mythf.site/admin" class="btn-action ghost">
+        <span>🎛️</span> Panel de Control
+      </a>
+    </div>
+
+    <footer>
+      SideQuest Halloween Party · Fin de la Sesión
+    </footer>
+  </div>
+
+  <!-- Botón de Audio de Fondo Oscuro -->
+  <button class="sound-pill active" id="audioBtn" onclick="toggleAudio()">
+    <span id="audioIcon">🔊</span> <span id="audioLabel">SUSURRO: ACTIVO</span>
+  </button>
+
+  <script>
+    // Generador de audio espectral y fúnebre con Web Audio API
+    let ctx = null;
+    let isPlaying = false;
+    let masterGain = null;
+    let droneOsc1 = null;
+    let droneOsc2 = null;
+
+    function initAudio() {
+      if (ctx) return;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      ctx = new AudioCtx();
+
+      masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.35, ctx.currentTime);
+      masterGain.connect(ctx.destination);
+
+      // Drone grave más profundo y fúnebre (44 Hz = Fa bajo)
+      droneOsc1 = ctx.createOscillator();
+      droneOsc1.type = 'sawtooth';
+      droneOsc1.frequency.setValueAtTime(44, ctx.currentTime);
+
+      const filter1 = ctx.createBiquadFilter();
+      filter1.type = 'lowpass';
+      filter1.frequency.setValueAtTime(95, ctx.currentTime);
+
+      const gain1 = ctx.createGain();
+      gain1.gain.setValueAtTime(0.55, ctx.currentTime);
+
+      droneOsc1.connect(filter1);
+      filter1.connect(gain1);
+      gain1.connect(masterGain);
+      droneOsc1.start();
+
+      // Disonancia sutil que crea tensión lenta (47 Hz)
+      droneOsc2 = ctx.createOscillator();
+      droneOsc2.type = 'sine';
+      droneOsc2.frequency.setValueAtTime(47, ctx.currentTime);
+
+      const gain2 = ctx.createGain();
+      gain2.gain.setValueAtTime(0.4, ctx.currentTime);
+
+      droneOsc2.connect(gain2);
+      gain2.connect(masterGain);
+      droneOsc2.start();
+
+      // Ruido espectral de viento lúgubre
+      const bufferSize = ctx.sampleRate * 3;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      let lastOut = 0.0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = output[i];
+      }
+
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(220, ctx.currentTime);
+      noiseFilter.Q.setValueAtTime(2.5, ctx.currentTime);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.25, ctx.currentTime);
+
+      whiteNoise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(masterGain);
+      whiteNoise.start();
+
+      // Campana funeraria solitaria cada 8 segundos
+      setInterval(() => {
+        if (!isPlaying || !ctx) return;
+        const bell = ctx.createOscillator();
+        const bGain = ctx.createGain();
+        bell.type = 'sine';
+        bell.frequency.setValueAtTime(140, ctx.currentTime);
+        bell.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 4.0);
+        bGain.gain.setValueAtTime(0.14, ctx.currentTime);
+        bGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 4.0);
+        bell.connect(bGain);
+        bGain.connect(masterGain);
+        bell.start();
+        bell.stop(ctx.currentTime + 4.1);
+      }, 8000);
+
+      isPlaying = true;
+    }
+
+    function toggleAudio() {
+      if (!ctx) {
+        initAudio();
+        document.getElementById('audioLabel').innerText = 'SUSURRO: ACTIVO';
+        document.getElementById('audioIcon').innerText = '🔊';
+        document.getElementById('audioBtn').classList.add('active');
+        return;
+      }
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+        isPlaying = true;
+        document.getElementById('audioLabel').innerText = 'SUSURRO: ACTIVO';
+        document.getElementById('audioIcon').innerText = '🔊';
+        document.getElementById('audioBtn').classList.add('active');
+      } else if (ctx.state === 'running') {
+        ctx.suspend();
+        isPlaying = false;
+        document.getElementById('audioLabel').innerText = 'SUSURRO: MUDO';
+        document.getElementById('audioIcon').innerText = '🔇';
+        document.getElementById('audioBtn').classList.remove('active');
+      }
+    }
+
+    window.addEventListener('click', () => {
+      if (!ctx) initAudio();
+      else if (ctx.state === 'suspended') ctx.resume();
+    }, { once: true });
+  </script>
+</body>
+</html>

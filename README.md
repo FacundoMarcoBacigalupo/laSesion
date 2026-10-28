@@ -280,12 +280,80 @@ snapshots     (session_id, state_json, at)  -- PK session_id
 
 ---
 
-## 🚀 Despliegue 100% Gratis Paso a Paso
+## 🚀 Despliegue en Producción Paso a Paso
 
-El proyecto está diseñado para funcionar en capas separadas o conjuntas de manera completamente gratuita:
-1. **Frontend (Vercel)**: Rápido, CDN global, HTTPS automático y sin cold-start.
-2. **Backend (Render / Railway / Koyeb / Fly.io)**: Soporte completo para Node.js y WebSocket / Socket.IO.
-3. **Base de Datos (Turso / Supabase)**: SQLite edge o PostgreSQL serverless gratis.
+Tu arquitectura actual configurada:
+- **Frontend**: Hostinger Subdominio (`https://lasesion.mythf.site`)
+- **Base de Datos**: Supabase PostgreSQL (`aws-0-us-east-1.pooler.supabase.com:5432`)
+- **IA**: DeepSeek (`deepseek-chat`)
+- **Backend (Node.js + WebSockets)**: Alojado en **Koyeb** o **Railway** (100% activos 24/7 sin cold start ni dormirse tras inactividad).
+
+---
+
+### 🖥️ Paso 1: Desplegar el Backend en Koyeb (Recomendado Gratis - Sin delay / No se duerme)
+
+**Koyeb** ([koyeb.com](https://www.koyeb.com)) tiene un plan gratuito continuo con soporte nativo de WebSockets y **sin delay de cold start** (a diferencia de Render, que se duerme tras 15 minutos de inactividad).
+
+1. **Crear cuenta**:
+   - Entra a [koyeb.com](https://www.koyeb.com) y regístrate con tu GitHub.
+2. **Crear la App**:
+   - Haz clic en **Create App** (o **Create Service**).
+   - Selecciona **GitHub** como origen y elige tu repositorio `FacundoMarcoBacigalupo/laSesion` (rama `main`).
+3. **Configuración de Build & Run**:
+   - **Build Command**: `npm install && npm run build -w shared && npm run build -w server`
+   - **Run Command**: `npm start`
+4. **Puertos (Exposed Ports)**:
+   - Configura el puerto interno en **`3000`** con protocolo **HTTP** (Koyeb expone HTTPS/WSS automáticamente al exterior).
+5. **Variables de Entorno (Environment Variables)**:
+   Agrega las variables con los valores reales del proyecto:
+   - `NODE_ENV` = `production`
+   - `PORT` = `3000`
+   - `PUBLIC_URL` = `https://lasesion.mythf.site`
+   - `TRUST_PROXY` = `1`
+   - `ADMIN_PASSWORD` = `admin` *(o tu contraseña preferida para el panel director)*
+   - `JWT_SECRET` = `clave-secreta-sesion-2026-halloween-token-seguro`
+   - `MESA_KEY` = `clave-del-proyector`
+   - `DEEPSEEK_API_KEY` = `sk-f1d493b3a71d4978ac11f107c0dad314`
+   - `DEEPSEEK_MODEL` = `deepseek-chat`
+   - `DEEPSEEK_BASE_URL` = `https://api.deepseek.com`
+   - `AI_ENABLED` = `true`
+   - `DATABASE_URL` = `postgresql://postgres.jvvcmwgsneuxtxdpbilq:iZSpluhsdGRTGgF7@aws-0-us-east-1.pooler.supabase.com:5432/postgres`
+   - `RETENTION_HOURS` = `24`
+   - `LOG_LEVEL` = `info`
+6. **Desplegar**:
+   - Haz clic en **Deploy**.
+   - En 1-2 minutos tendrás tu URL activa sin demoras (ejemplo: `https://la-sesion-[usuario].koyeb.app`).
+
+> **Alternativa sin delay: Railway** ([railway.app](https://railway.app)):
+> Si prefieres Railway, conecta el repo de GitHub, añade las mismas variables de entorno y se despliega al instante con créditos gratuitos mensuales renovables.
+
+---
+
+### 🌐 Paso 2: Subir el Frontend a Hostinger
+
+1. Una vez que tengas la URL del backend (ej: `https://la-sesion-[usuario].koyeb.app`):
+   - En tu computadora creas el archivo `client/.env.production`:
+     ```env
+     VITE_API_URL=https://tu-backend.koyeb.app
+     ```
+   - Compilas en la terminal:
+     ```bash
+     npm run build -w client
+     ```
+2. Ve a la carpeta `client/dist`.
+3. Sube a Hostinger (en la carpeta `public_html` de tu subdominio `lasesion`):
+   - La carpeta **`assets/`**
+   - El archivo **`index.html`**
+   - El archivo **`.htaccess`** (para que las rutas `/mesa`, `/admin` y `/play` no den 404 al recargar).
+   *(Nota: no es necesario subir la carpeta `sounds` ya que el audio se genera por síntesis en tiempo real).*
+
+---
+
+### 🌐 URLs Finales de la Experiencia
+
+- 📱 **Público (Celulares)**: [https://lasesion.mythf.site/](https://lasesion.mythf.site/) *(redirige a `/play`)*
+- 📽️ **Proyector / Tablero**: [https://lasesion.mythf.site/mesa](https://lasesion.mythf.site/mesa) (con QR en pantalla)
+- 🎛️ **Admin / Director**: [https://lasesion.mythf.site/admin](https://lasesion.mythf.site/admin) (login en `/admin/login`)
 
 ---
 

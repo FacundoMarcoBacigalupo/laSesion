@@ -6,6 +6,7 @@ import { useUiStore } from '../store/uiStore';
 import { useSocket } from '../hooks/useSocket';
 import { useFullscreen } from '../hooks/useFullscreen';
 import { renderQr } from '../lib/qr';
+import BloodWebs from '../components/ui/BloodWebs';
 import { typeOnBoard } from '../lib/typing';
 import { Battery, Flame, HeartCrack, Pizza, Radio } from 'lucide-react';
 import { vibrate } from '../lib/haptics';
@@ -37,11 +38,12 @@ export default function MesaPage() {
   const [willText, setWillText] = useState<string | null>(null);
   const [pact, setPact] = useState<any>(null);
   const [ghosts, setGhosts] = useState<any[]>([]);
-  const [want, setWant] = useState('🍕');
+  const [want, setWant] = useState('ALIMENTO');
   const [points, setPoints] = useState(0);
   const [bodies, setBodies] = useState<any[]>([]);
   const [exorcismActive, setExorcismActive] = useState(false);
   const [exorcismEnergy, setExorcismEnergy] = useState(0);
+  const [pactSignatures, setPactSignatures] = useState<any[]>([]);
   const [intro, setIntro] = useState(true);
 
   const qrRef = useRef<HTMLCanvasElement>(null);
@@ -107,6 +109,9 @@ export default function MesaPage() {
     'pact:sealed': (p) => {
       setPact((prev: any) => prev ? { ...prev, sealed: true, png: p.png } : prev);
       sfx.seal();
+    },
+    'pact:signed': (p) => {
+      setPactSignatures((prev) => [...prev, { name: p.name, time: p.time, png: p.png }]);
     },
     cauldron: (p) => {
       const r = 13;
@@ -257,6 +262,7 @@ export default function MesaPage() {
 
   return (
     <>
+      <BloodWebs />
       {intro && <div className="intro-screen" onClick={enterSession}>
         <div className="intro-mark" aria-hidden="true">L</div>
         <h1 className="intro-title">LA SESIÓN</h1>
@@ -282,8 +288,8 @@ export default function MesaPage() {
           boxShadow: '0 8px 32px -8px rgba(0,0,0,0.6)'
         }}>
           {/* QR */}
-          <div style={{ background: '#fff', padding: 8, borderRadius: 14, display: 'inline-flex', boxShadow: '0 0 30px rgba(139,108,255,0.35)', flexShrink: 0 }}>
-            <canvas ref={qrRef} width={136} height={136} style={{ display: 'block' }} />
+          <div style={{ background: '#fff', padding: 12, borderRadius: 16, display: 'inline-flex', boxShadow: '0 0 30px rgba(139,108,255,0.35)', flexShrink: 0 }}>
+            <canvas ref={qrRef} width={220} height={220} style={{ display: 'block' }} />
           </div>
 
           <div>
@@ -490,6 +496,17 @@ export default function MesaPage() {
             <canvas ref={canvasRef} width={340} height={130} style={{ width: 340, height: 130, background: '#08040f', borderRadius: 12, border: '1px solid var(--l)' }} />
           </div>
         </div>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {pactSignatures.map((sig, i) => (
+          <div key={i} style={{ background: 'rgba(0,0,0,0.5)', padding: 12, borderRadius: 10, border: '1px solid var(--l)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <b style={{ color: '#ffb3c0' }}>{sig.name}</b>
+              <span style={{ fontSize: 11, color: 'var(--mu)' }}>{new Date(sig.time).toLocaleTimeString()}</span>
+            </div>
+            {sig.png && <img src={sig.png} alt="firma" style={{ background: '#000', borderRadius: 6, width: '100%', maxWidth: 260 }} />}
+          </div>
+        ))}
+      </div>
       </div>
     </div>
     </>

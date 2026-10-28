@@ -8,6 +8,7 @@ export const EV = {
   SIGN_STROKE: 'sign:stroke',
   SIGN_CLEAR: 'sign:clear',
   SIGN_DONE: 'sign:done',
+  PACT_STANDALONE: 'pact:standalone',
   OFFER: 'offer',
   SHAKE: 'shake',
   PING: 'ping',
@@ -42,6 +43,7 @@ export const EV = {
   MESA_PACT_CLEAR: 'pact:clear',
   MESA_PACT_PENALTY: 'pact:penalty',
   MESA_PACT_SEALED: 'pact:sealed',
+  MESA_PACT_SIGNED: 'pact:signed',
   MESA_CAULDRON: 'cauldron',
   MESA_OFFERING: 'offering',
   MESA_EXORCISM: 'exorcism',
@@ -70,5 +72,7 @@ export const EV = {
   DIR_SAY: 'dir:say',
   DIR_AI_TOGGLE: 'dir:aiToggle',
   DIR_PURGE: 'dir:purge',
+  DIR_MOCK: 'dir:mock',
+  DIR_BAN: 'dir:ban',
   DIR_KICK: 'dir:kick',
 } as const;

@@ -6,6 +6,7 @@ import { useMeStore } from '../store/meStore';
 import { readDevice } from '../lib/device';
 import { makeSocket } from '../lib/socket';
 import { createMockSocket } from '../lib/mockSocket';
+import BloodWebs from '../components/ui/BloodWebs';
 
 export default function JoinPage() {
   const nav = useNavigate();
@@ -100,6 +101,7 @@ export default function JoinPage() {
 
   return (
     <div ref={containerRef} className="app" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: '100vh' }}>
+      <BloodWebs />
       <div className="join-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', borderRadius: 99, background: 'rgba(139,108,255,0.15)', border: '1px solid rgba(139,108,255,0.3)', color: 'var(--a)', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
         <span>🔮</span> SideQuest Halloween
       </div>

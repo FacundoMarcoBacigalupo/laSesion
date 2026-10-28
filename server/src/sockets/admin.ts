@@ -14,6 +14,10 @@ import { moderateText } from '../services/moderation';
 import { newId } from '../utils/ids';
 import { purgeSessionData } from '../services/purge';
 import { logEvent } from '../db/repos/events';
+import { banIp } from '../services/bans';
+
+let mockInterval: any = null;
+let mockActive = false;
 
 export function registerAdmin(io: any, store: SessionStore, scheduler: AiScheduler) {
   const nsp = io.of('/admin');
@@ -228,6 +232,56 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
         store.session.users.delete(uid);
         broadcastPlayersAdmin(io, store);
       }
+
+    socket.on(EV.DIR_MOCK, (_p: any, ack?: (r: any) => void) => {
+      if (mockActive) {
+        if (mockInterval) clearInterval(mockInterval);
+        mockInterval = null;
+        mockActive = false;
+        // remove mock users
+        for (const id of [...store.session.users.keys()]) {
+          if (id.startsWith('mock-')) store.session.users.delete(id);
+        }
+        broadcastPlayersAdmin(io, store);
+        io.of('/mesa').emit(EV.MESA_PLAYERS, { users: [...store.session.users.values()] });
+        ack?.({ ok: true, active: false });
+        return;
+      }
+      const names = ['Ana','Bruno','Carla','Diego','Elena','Facundo','Gabriela','Hugo','Irene','Javier'];
+      names.forEach((n, i) => {
+        const id = 'mock-' + i;
+        store.session.users.set(id, { id, name: n, connected: true, holding: true, ghost: i >= 7, socketId: null } as any);
+      });
+      const signers = names.slice(0, 6);
+      signers.forEach((n) => {
+        io.of('/mesa').emit(EV.MESA_PACT_SIGNED, { name: n, time: Date.now(), png: '' });
+      });
+      let i = 0;
+      mockInterval = setInterval(() => {
+        const kinds = ['pizza','wifi','ex','battery'];
+        const kind = kinds[i % kinds.length];
+        io.of('/mesa').emit(EV.MESA_CAULDRON, { kind, byName: names[i % names.length] });
+        i++;
+        if (i > 20) { clearInterval(mockInterval); mockInterval = null; mockActive = false; }
+      }, 5000);
+      mockActive = true;
+      broadcastPlayersAdmin(io, store);
+      io.of('/mesa').emit(EV.MESA_PLAYERS, { users: [...store.session.users.values()] });
+      ack?.({ ok: true, active: true });
+    });
+
+    socket.on(EV.DIR_BAN, (payload: any, ack?: (r: any) => void) => {
+      const uid = payload?.userId;
+      const u = store.session.users.get(uid);
+      if (u) {
+        if (u.socketId) io.of('/play').sockets.get(u.socketId)?.disconnect(true);
+        const ip = u?.ip;
+        store.session.users.delete(uid);
+        if (ip) banIp(ip, 10);
+        broadcastPlayersAdmin(io, store);
+      }
+      ack?.({ ok: true });
+    });
       ack?.({ ok: true });
     });
   });

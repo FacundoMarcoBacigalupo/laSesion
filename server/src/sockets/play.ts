@@ -7,6 +7,7 @@ import { applyHold } from '../domain/hold';
 import { enqueueQuestion } from '../domain/questions';
 import { castVote } from '../domain/votes';
 import { validatePng } from '../domain/pact';
+import { isBanned } from '../services/bans';
 import { applyOffering } from '../domain/offerings';
 import { applyShake } from '../domain/exorcism';
 import { moderateText } from '../services/moderation';
@@ -205,6 +206,15 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       io.of('/mesa').emit(EV.MESA_SAY, { id: newId(8), text: 'FIRMADO. YA NO HAY VUELTA ATRAS.', question: undefined, mood: store.session.mood, force: true });
       io.of('/play').emit(EV.SAY, { id: newId(8), text: 'FIRMADO. YA NO HAY VUELTA ATRAS.', question: undefined, mood: store.session.mood, force: true });
       ack?.({ ok: true });
+    });
+
+    socket.on(EV.PACT_STANDALONE, (payload: any) => {
+      const png = payload?.png;
+      if (!validatePng(png)) return;
+      const uid = socket.data.userId;
+      const u = uid ? store.session.users.get(uid) : null;
+      const name = u?.name ?? payload?.name ?? 'Anónimo';
+      io.of('/mesa').emit(EV.MESA_PACT_SIGNED, { name, time: Date.now(), png });
     });
 
     socket.on(EV.OFFER, (payload: any) => {
