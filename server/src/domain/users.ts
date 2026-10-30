@@ -1,4 +1,4 @@
-import type { User, DeviceInfo } from '@sesion/shared';
+import type { DeviceInfo, Session, User } from '@sesion/shared';
 import { newId, newToken } from '../utils/ids';
 import { now } from '../utils/time';
 import { maskIp } from '../services/ip';
@@ -37,11 +37,23 @@ export function resumeUser(u: User): User {
   return u;
 }
 
-export function disconnectUser(u: User, socketId: string): boolean {
-  if (u.socketId !== socketId) return false;
-  u.connected = false;
-  u.socketId = null;
-  u.holding = false;
-  u.lastSeenAt = now();
+export function removeParticipant(
+  session: Pick<Session, 'users' | 'votes' | 'queue' | 'victimId' | 'willText'>,
+  userId: string,
+  socketId: string,
+): boolean {
+  const user = session.users.get(userId);
+  if (!user || user.socketId !== socketId) return false;
+
+  session.users.delete(userId);
+  session.votes.delete(userId);
+  for (const [voterId, targetId] of session.votes) {
+    if (targetId === userId) session.votes.delete(voterId);
+  }
+  session.queue = session.queue.filter((question) => question.userId !== userId || question.state !== 'queued');
+  if (session.victimId === userId) {
+    session.victimId = null;
+    session.willText = null;
+  }
   return true;
 }

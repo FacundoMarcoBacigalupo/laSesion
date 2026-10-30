@@ -1,6 +1,7 @@
 export const EV = {
   // /play client->server
   JOIN: 'join',
+  LEAVE: 'leave',
   HOLD: 'hold',
   VISIBILITY: 'visibility',
   ASK: 'ask',

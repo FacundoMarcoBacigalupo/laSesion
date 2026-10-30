@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createUser, disconnectUser } from '../src/domain/users';
+import { SessionStore } from '../src/domain/session';
+import { createUser, removeParticipant } from '../src/domain/users';
 
-function makeUser() {
+function addUser(store: SessionStore, socketId: string) {
   const user = createUser({
     name: 'Participante',
     consent: true,
@@ -9,27 +10,41 @@ function makeUser() {
     ip: '127.0.0.1',
     userAgent: 'test',
   });
-  user.socketId = 'current-socket';
+  user.socketId = socketId;
+  store.addUser(user);
   return user;
 }
 
-describe('disconnectUser', () => {
-  it('immediately marks the active socket offline and releases its hand', () => {
-    const user = makeUser();
+describe('removeParticipant', () => {
+  it('removes the participant and their queued actions immediately', () => {
+    const store = new SessionStore();
+    const user = addUser(store, 'current-socket');
     user.holding = true;
+    store.session.votes.set(user.id, 'other');
+    store.session.votes.set('other', user.id);
+    store.session.victimId = user.id;
+    store.session.willText = 'testamento';
+    store.session.queue.push(
+      { id: 'queued', userId: user.id, name: user.name, text: 'pregunta', at: Date.now(), state: 'queued' },
+      { id: 'answered', userId: user.id, name: user.name, text: 'anterior', at: Date.now(), state: 'answered' },
+    );
 
-    expect(disconnectUser(user, 'current-socket')).toBe(true);
-    expect(user.connected).toBe(false);
-    expect(user.socketId).toBeNull();
-    expect(user.holding).toBe(false);
+    expect(removeParticipant(store.session, user.id, 'current-socket')).toBe(true);
+    expect(store.session.users.has(user.id)).toBe(false);
+    expect(store.session.votes.has(user.id)).toBe(false);
+    expect(store.session.votes.has('other')).toBe(false);
+    expect(store.session.queue.map((question) => question.id)).toEqual(['answered']);
+    expect(store.session.victimId).toBeNull();
+    expect(store.session.willText).toBeNull();
+    expect(store.totalCount()).toBe(0);
   });
 
-  it('ignores a stale socket disconnect after the user has reconnected', () => {
-    const user = makeUser();
-    user.socketId = 'new-socket';
+  it('does not remove a participant after a different socket has reconnected', () => {
+    const store = new SessionStore();
+    const user = addUser(store, 'new-socket');
 
-    expect(disconnectUser(user, 'old-socket')).toBe(false);
-    expect(user.connected).toBe(true);
-    expect(user.socketId).toBe('new-socket');
+    expect(removeParticipant(store.session, user.id, 'old-socket')).toBe(false);
+    expect(store.session.users.has(user.id)).toBe(true);
+    expect(store.totalCount()).toBe(1);
   });
 });

@@ -2,7 +2,7 @@ import { EV, MAX_PARTICIPANTS } from '@sesion/shared';
 import { JoinSchema, HoldSchema, VisibilitySchema, AskSchema, VoteSchema, StrokeSchema, SignDoneSchema, OfferSchema, ShakeSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
 import { getBucket, ipOfSocket, rateBuckets } from './middleware';
-import { createUser, disconnectUser, resumeUser } from '../domain/users';
+import { createUser, removeParticipant, resumeUser } from '../domain/users';
 import { applyHold } from '../domain/hold';
 import { enqueueQuestion } from '../domain/questions';
 import { castVote } from '../domain/votes';
@@ -70,6 +70,23 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
     socket.on('debug:hands:subscribe', () => {
       socket.join('hands-debug');
       socket.emit('debug:hands:state', handsDebugState(store));
+    });
+
+    socket.on(EV.LEAVE, (_payload: unknown, ack?: (result: { ok: boolean }) => void) => {
+      const uid = socket.data.userId;
+      if (!uid || !removeParticipant(store.session, uid, socket.id)) {
+        ack?.({ ok: false });
+        return;
+      }
+      socket.data.userId = null;
+      socket.leave(uid);
+      store.recomputeTension();
+      broadcastPlayers(io, store);
+      io.of('/mesa').emit(EV.MESA_QUEUE, { size: store.session.queue.filter((q) => q.state === 'queued').length });
+      broadcastVotes(io, store);
+      io.of('/mesa').emit(EV.MESA_TENSION, { value: Math.round(store.session.tension) });
+      ack?.({ ok: true });
+      socket.disconnect(true);
     });
 
     socket.on(EV.HOLD, (payload: any) => {
@@ -284,9 +301,12 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       const uid = socket.data.userId;
       if (!uid) return;
       const u = store.session.users.get(uid);
-      if (u && disconnectUser(u, socket.id)) {
-        // ghost after grace 5s handled by interval
+      if (u && removeParticipant(store.session, uid, socket.id)) {
+        store.recomputeTension();
         broadcastPlayers(io, store);
+        io.of('/mesa').emit(EV.MESA_QUEUE, { size: store.session.queue.filter((q) => q.state === 'queued').length });
+        broadcastVotes(io, store);
+        io.of('/mesa').emit(EV.MESA_TENSION, { value: Math.round(store.session.tension) });
       }
       rateBuckets.delete(socket.id); // cleanup maybe
     });
@@ -367,10 +387,17 @@ function ghostUser(io: any, store: SessionStore, scheduler: AiScheduler, u: any)
 
 function broadcastPlayers(io: any, store: SessionStore) {
   const users = [...store.session.users.values()].map((u) => ({ id: u.id, name: u.name, holding: u.holding, ghost: u.ghost }));
+  io.of('/play').emit(EV.HANDS, { n: store.handsCount(), total: store.totalCount() });
   io.of('/mesa').emit(EV.MESA_PLAYERS, { users });
   io.of('/mesa').emit(EV.MESA_HANDS, { n: store.handsCount(), total: store.totalCount() });
   io.of('/play').to('hands-debug').emit('debug:hands:state', handsDebugState(store));
   io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
+}
+
+function broadcastVotes(io: any, store: SessionStore) {
+  const counts = countVotes(store.session);
+  const topUserId = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  io.of('/mesa').emit(EV.MESA_VOTES, { counts, topUserId });
 }
 
 function handsDebugState(store: SessionStore) {
