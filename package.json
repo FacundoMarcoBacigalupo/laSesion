@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently \"npm:dev -w server\" \"npm:dev -w client\"",
     "build": "npm run build -w shared && npm run build -w client && npm run build -w server",
-    "start": "npm run migrate -w server && node server/dist/index.js",
+    "start": "npm run start -w server",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "test": "npm run lint && npm test --workspaces --if-present",
