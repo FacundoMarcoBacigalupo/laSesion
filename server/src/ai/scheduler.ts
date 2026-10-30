@@ -84,7 +84,7 @@ export class AiScheduler {
     // wait if busy or say pending
     const startWait = Date.now();
     while (s.ai.busy || s.sayDonePending === true) {
-      if (Date.now() - startWait > 6000) break;
+      if (Date.now() - startWait > 45000) break;
       await sleep(100);
     }
     // min gap
@@ -211,7 +211,7 @@ export class AiScheduler {
     // emit say
     const text = result?.texto ?? '';
     const id = newId(8);
-    s.say = { id, text, question: job.question, force: job.force ?? false, startedAt: Date.now() };
+    s.say = { id, text, question: job.question, force: job.force ?? false, startedAt: Date.now(), askerId: job.extra?.userId };
     s.sayDonePending = true;
     s.ai.busy = false;
     s.ai.lastAt = Date.now();
@@ -222,11 +222,7 @@ export class AiScheduler {
     this.emitSay(text, job.question, s.mood, job.force ?? false, id);
     this.emitAdminPrompt(pedido, prompt, result, latencyMs, fallback, job.question, job.extra?.questionId);
 
-    // log
     logAi(s.id, pedido, prompt, result, ok, latencyMs, fallback).catch(() => {});
-
-    // clear sayDonePending after max 6s
-    setTimeout(() => { if (s.say?.id === id) { s.sayDonePending = false; s.say = null; } }, 6000);
   }
 
   private maybeLatido() {

@@ -42,6 +42,7 @@ export default function MesaPage() {
   const qrRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const typingRef = useRef<{ stop: boolean }>({ stop: false });
+  const mesaSocket = useRef<any>(null);
 
   const boardLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   const [lit, setLit] = useState<Record<string, boolean>>({});
@@ -62,16 +63,20 @@ export default function MesaPage() {
       const text = typeof p.text === 'string' ? p.text : '';
       setTyped('');
       setSayQuestion(p.question);
-      await typeOnBoard(text, {
-        force: p.force,
-        hands: () => hands,
-        onChar: (ch) => setTyped((prev) => prev + ch),
-        onLetter: (letter, on) => {
-          setLit((prev) => ({ ...prev, [letter]: on }));
-          if (on) sfx.letter();
-        },
-        signal,
-      });
+      try {
+        await typeOnBoard(text, {
+          force: p.force,
+          hands: () => hands,
+          onChar: (ch) => setTyped((prev) => prev + ch),
+          onLetter: (letter, on) => {
+            setLit((prev) => ({ ...prev, [letter]: on }));
+            if (on) sfx.letter();
+          },
+          signal,
+        });
+      } finally {
+        mesaSocket.current?.emit('mesa:say:done', { id: p.id });
+      }
     },
     ghost: (p) => {
       setGhosts((g) => [...g, { userId: p.userId, name: p.name, question: p.question }]);
@@ -85,7 +90,8 @@ export default function MesaPage() {
     mood: (p) => setMood(p.mood),
   };
 
-  useSocket('/mesa', handlers, demo, { auth: { key: new URLSearchParams(window.location.search).get('key') ?? '' } });
+  const socketR = useSocket('/mesa', handlers, demo, { auth: { key: new URLSearchParams(window.location.search).get('key') ?? '' } });
+  useEffect(() => { mesaSocket.current = socketR.current; });
 
   useEffect(() => () => {
     typingRef.current.stop = true;
@@ -156,7 +162,7 @@ export default function MesaPage() {
       {intro && <div className="intro-screen" onClick={enterSession}>
         <div className="intro-mark" aria-hidden="true">L</div>
         <h1 className="intro-title">LA SESIÓN</h1>
-        <p className="intro-subtitle">EL CÍRCULO ESTÁ ESPERANDO</p>
+        <p className="intro-subtitle">ALGO YA ESTÁ SENTADO</p>
         <button className="intro-enter" onClick={(event) => { event.stopPropagation(); enterSession(); }}>ENTRAR</button>
       </div>}
       <div 
@@ -183,13 +189,13 @@ export default function MesaPage() {
 
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 99, background: 'rgba(139,108,255,0.2)', color: 'var(--a)', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-              UNIRSE A LA SESIÓN
+              ENTRAR AL CÍRCULO
             </div>
             <h1 className="title" style={{ margin: 0, fontSize: 'clamp(28px, 4vw, 44px)', letterSpacing: '0.01em', lineHeight: 1.1 }}>
               La Sesión
             </h1>
             <p style={{ color: 'var(--mu)', fontSize: 15, margin: '6px 0 0 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-              Escaneá con la cámara de tu celular para participar
+              Escaneá. El círculo toma el nombre que le des.
             </p>
           </div>
 
@@ -211,19 +217,19 @@ export default function MesaPage() {
             <div style={{ textAlign: 'center', padding: '28px 12px 8px' }}>
               {waiting > 0 ? (
                 <>
-                  <div style={{ letterSpacing: '0.28em', color: 'var(--r)', fontSize: 13, fontWeight: 800 }}>EL CÍRCULO NO ESTÁ CERRADO</div>
+                  <div style={{ letterSpacing: '0.28em', color: 'var(--r)', fontSize: 13, fontWeight: 800 }}>EL CÍRCULO NO CIERRA</div>
                   <h2 className="spirit-text" style={{ fontSize: 'clamp(32px, 5vw, 64px)', margin: '18px 0 8px' }}>
-                    Estamos esperando {waiting} {waiting === 1 ? 'alma más' : 'almas más'}
+                    Faltan {waiting} {waiting === 1 ? 'alma' : 'almas'}
                   </h2>
                 </>
               ) : (
                 <>
-                  <div style={{ letterSpacing: '0.28em', color: 'var(--r)', fontSize: 13, fontWeight: 800 }}>NADIE SUELTA</div>
+                  <div style={{ letterSpacing: '0.28em', color: 'var(--r)', fontSize: 13, fontWeight: 800 }}>NADIE SUELTA EL VASO</div>
                   <h2 className="spirit-text" style={{ fontSize: 'clamp(32px, 5vw, 60px)', margin: '18px 0 8px' }}>
-                    Todas las almas sostienen
+                    Todas las manos están dentro
                   </h2>
                   <p style={{ color: 'var(--mu)', margin: 0 }}>
-                    {holdLeft == null ? 'El vaso respira con ellas.' : `El juicio llega en ${holdLeft}s.`}
+                    {holdLeft == null ? 'El vaso les toma el pulso.' : `El juicio cae en ${holdLeft}s. No parpadeen.`}
                   </p>
                 </>
               )}
@@ -241,7 +247,7 @@ export default function MesaPage() {
                   }}>
                     <div style={{ fontSize: 18, fontWeight: 800 }}>{soul.name}</div>
                     <div style={{ fontSize: 12, letterSpacing: '0.14em', color: soul.holding ? '#ffb3c0' : 'var(--mu)', marginTop: 4 }}>
-                      {soul.holding ? 'SOSTIENE' : 'TIEMBLA'}
+                      {soul.holding ? 'NO SUELTA' : 'TIEMBLA'}
                     </div>
                   </div>
                 ))}
@@ -258,7 +264,7 @@ export default function MesaPage() {
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '8px 0 18px' }}>
                 {(ritual?.whispers ?? []).length === 0 && (
-                  <p style={{ textAlign: 'center', color: 'var(--mu)' }}>Las cinco almas pueden hablar. Sus palabras caen sobre la mesa.</p>
+                  <p style={{ textAlign: 'center', color: 'var(--mu)' }}>Las que quedaron pueden hablar. Sus palabras caen sobre la mesa.</p>
                 )}
                 {(ritual?.whispers ?? []).map((whisper: any, index: number) => (
                   <div key={`${whisper.at}-${index}`} style={{ border: '1px solid var(--l)', borderRadius: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.35)' }}>
@@ -277,7 +283,7 @@ export default function MesaPage() {
                   {cauldronLeft == null ? 'EL CALDERO PESA' : `${cauldronLeft}s`}
                 </div>
                 <h2 className="spirit-text" style={{ fontSize: 'clamp(28px, 4vw, 48px)', margin: '10px 0' }}>
-                  Quien ofrende menos será sacrificado
+                  Quien ofrende menos se queda en el fuego
                 </h2>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720, margin: '0 auto' }}>
@@ -298,9 +304,9 @@ export default function MesaPage() {
 
           {ritualStage === 'pact' && (
             <div style={{ textAlign: 'center', padding: '36px 12px' }}>
-              <div style={{ letterSpacing: '0.28em', color: '#5dffa8', fontSize: 13, fontWeight: 800 }}>LOGRO</div>
-              <h2 className="spirit-text" style={{ fontSize: 'clamp(36px, 6vw, 72px)', margin: '16px 0', textShadow: '0 0 30px rgba(93,255,168,0.35)' }}>
-                {ritual?.pureName ?? 'Alguien'}, eres un puro de verdad
+              <div style={{ letterSpacing: '0.28em', color: '#ffb3c0', fontSize: 13, fontWeight: 800 }}>EL ABISMO ELIGE</div>
+              <h2 className="spirit-text" style={{ fontSize: 'clamp(36px, 6vw, 72px)', margin: '16px 0', textShadow: '0 0 30px rgba(255,59,92,0.45)' }}>
+                {ritual?.pureName ?? 'Alguien'}, el abismo te reconoce
               </h2>
               {pactSignatures[0]?.png && (
                 <img src={pactSignatures[0].png} alt="firma" style={{ background: '#000', borderRadius: 8, width: 'min(360px, 100%)', border: '1px solid var(--l)' }} />
@@ -325,14 +331,14 @@ export default function MesaPage() {
         }}>
           {sayQuestion && (
             <p className="mesa-spirit-question" style={{ color: 'var(--mu)', fontSize: 14, fontStyle: 'italic', marginBottom: 6 }}>
-              Pregunta: «{sayQuestion}»
+              Cayó en la mesa: «{sayQuestion}»
             </p>
           )}
           <div id="wr" className="spirit-text mesa-spirit-message" style={{
             fontSize: 'clamp(22px, 4.5vw, 48px)',
             textShadow: `0 0 25px ${moodColor}` 
           }}>
-            {typed || <span style={{ opacity: 0.35, fontSize: 24, fontStyle: 'normal' }}>— Las fuerzas del círculo guardan silencio —</span>}
+            {typed || <span style={{ opacity: 0.35, fontSize: 24, fontStyle: 'normal' }}>— El vaso todavía no se mueve —</span>}
           </div>
         </div>
 

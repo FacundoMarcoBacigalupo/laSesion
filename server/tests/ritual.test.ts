@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SessionStore } from '../src/domain/session';
 import { createUser } from '../src/domain/users';
-import { armRitualNow, noteRitualAnswer, noteRitualAsk, scoreRitualOffering, setRitualRoomSize, tickRitual } from '../src/domain/ritual';
+import { armRitualNow, noteRitualAnswer, noteRitualAsk, resetRitual, scoreRitualOffering, setRitualRoomSize, tickRitual } from '../src/domain/ritual';
 import { RITUAL_CAULDRON_MS, RITUAL_HOLD_MS, RITUAL_LINES, RITUAL_QUESTIONS_MAX_MS, RITUAL_QUESTIONS_MIN_MS } from '@sesion/shared';
 
 function add(store: SessionStore, name: string, holding = false) {
@@ -107,6 +107,19 @@ describe('ritual', () => {
     expect(judged?.eliminated).toHaveLength(2);
     expect([...store.session.users.values()].filter((user) => !user.eliminated)).toHaveLength(2);
     expect(store.session.ritual.stage).toBe('questions');
+  });
+
+  it('returns every soul to the cup when the director restarts the rite', () => {
+    const store = new SessionStore();
+    setRitualRoomSize(store.session, 4);
+    for (let i = 0; i < 4; i++) add(store, `Alma ${i}`, true);
+    tickRitual(store.session, 0);
+    tickRitual(store.session, RITUAL_HOLD_MS);
+    expect(store.session.ritual.stage).toBe('questions');
+    resetRitual(store.session);
+    expect(store.session.ritual.stage).toBe('hold');
+    expect(store.session.ritual.roomSize).toBe(4);
+    expect([...store.session.users.values()].every((user) => !user.eliminated && !user.holding)).toBe(true);
   });
 
   it('lets the director cut the hold as soon as the room is full', () => {

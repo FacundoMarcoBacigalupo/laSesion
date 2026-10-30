@@ -70,7 +70,7 @@ export default function JoinPage() {
 
   async function enter() {
     if (!name.trim() || !consent) {
-      setErr('Ingresá tu nombre y aceptá los términos para continuar');
+      setErr('Sin nombre y sin consentimiento, el círculo no te deja pasar.');
       triggerErrorShake();
       return;
     }
@@ -102,19 +102,19 @@ export default function JoinPage() {
     <div ref={containerRef} className="app" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: '100vh' }}>
       <BloodWebs />
       <div className="join-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', borderRadius: 99, background: 'rgba(139,108,255,0.15)', border: '1px solid rgba(139,108,255,0.3)', color: 'var(--a)', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
-        <span>🔮</span> SideQuest Halloween
+        El círculo está abierto
       </div>
 
       <h1 className="title join-title">La Sesión</h1>
 
       <p className="join-sub spirit-text" style={{ maxWidth: 440, margin: '0 auto 8px', color: 'var(--mu)', fontSize: '1.15rem' }}>
-        Ouija colectiva en tiempo real. Uní tu energía a la del círculo.
+        Dejá tu nombre. Lo que entre, ya no sale igual.
       </p>
 
       <div ref={cardRef} className="card join-card card-highlight" style={{ marginTop: 20, width: '100%', maxWidth: 420, textAlign: 'center' }}>
         <div className="join-item" style={{ marginBottom: 16 }}>
           <label htmlFor="playerName" style={{ display: 'block', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--tx)', marginBottom: 6 }}>
-            Tu nombre
+            El nombre que van a usar
           </label>
           <input
             id="playerName"
@@ -122,7 +122,7 @@ export default function JoinPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') enter(); }}
-            placeholder="¿Cómo te llamás?"
+            placeholder="Decilo ahora. Después no se cambia."
             maxLength={24}
             autoFocus
           />
@@ -137,7 +137,7 @@ export default function JoinPage() {
               onChange={(e) => setConsent(e.target.checked)}
             />
             <span style={{ fontSize: 12.5, color: 'var(--mu)', lineHeight: 1.45 }}>
-              Esta sesión accede a datos de tu dispositivo (modelo, batería, zona horaria) para manifestarse durante la experiencia. Toda información se destruye al finalizar.
+              El círculo lee tu aparato — modelo, batería, zona — para hablarte. Al terminar, eso se quema.
             </span>
           </label>
         </div>
@@ -150,7 +150,7 @@ export default function JoinPage() {
             onClick={enter}
             disabled={loading}
           >
-            {loading ? 'Invocando...' : 'Entrar al círculo 🕯️'}
+            {loading ? 'El círculo te está mirando...' : 'Entrar al círculo'}
           </button>
         </div>
 

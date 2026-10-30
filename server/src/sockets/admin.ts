@@ -1,5 +1,5 @@
 import { EV } from '@sesion/shared';
-import { armRitualNow, ritualView, setRitualRoomSize } from '../domain/ritual';
+import { armRitualNow, resetRitual, ritualView, setRitualRoomSize } from '../domain/ritual';
 import { DirAskSchema, DirQueueDeleteSchema, DirPickVictimSchema, DirExorcismSchema, DirPhaseSchema, DirRoomSizeSchema, DirMoodSchema, DirSaySchema, DirAiToggleSchema, DirGhostSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
 import { authHandshakeAdmin } from './middleware';
@@ -242,6 +242,15 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
     socket.on(EV.DIR_RITUAL_CUT, (_payload: unknown, ack?: (r: any) => void) => {
       const armed = armRitualNow(store.session);
       ack?.(armed ? { ok: true } : { ok: false, error: 'faltan' });
+    });
+
+    socket.on(EV.DIR_RITUAL_RESET, (_payload: unknown, ack?: (r: any) => void) => {
+      resetRitual(store.session);
+      const view = ritualView(store.session);
+      io.of('/play').emit(EV.RITUAL, view);
+      io.of('/mesa').emit(EV.RITUAL, view);
+      broadcastPlayersAdmin(io, store);
+      ack?.({ ok: true });
     });
 
     socket.on(EV.DIR_KICK, (payload: any, ack?: (r: any) => void) => {

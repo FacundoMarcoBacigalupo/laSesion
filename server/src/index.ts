@@ -11,6 +11,7 @@ import { newId } from './utils/ids';
 import { upsertSession } from './db/repos/sessions';
 import { saveAdminConversation } from './db/repos/adminConversations';
 import { noteRitualAnswer } from './domain/ritual';
+import { revealPendingSay } from './sockets/revealSay';
 
 async function main(): Promise<http.Server> {
   const dbAvailable = await initDb();
@@ -25,11 +26,11 @@ async function main(): Promise<http.Server> {
 
   const scheduler = new AiScheduler(store, (text, question, mood, force, id) => {
     if (question) noteRitualAnswer(store.session, Date.now());
-    // emit say to mesa and play
     const io = (server as any).__io;
     if (!io) return;
     io.of('/mesa').emit('say', { id, text, question, mood, force });
-    io.of('/play').emit('say', { id, text, question, mood, force });
+    const wait = Math.min(42_000, Math.max(9_000, [...text].length * 90 + 1_200));
+    setTimeout(() => revealPendingSay(io, store, id), wait);
   }, (pedido, prompt, response, latencyMs, fallback, question, questionId) => {
     const io = (server as any).__io;
     if (question && questionId) {

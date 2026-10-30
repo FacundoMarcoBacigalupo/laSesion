@@ -61,7 +61,7 @@ export default function PlayPage() {
 
   const [screen, setScreen] = useState<'hold' | 'ask' | 'vote' | 'chosen' | 'pact' | 'offerings' | 'exorcism' | 'pacto' | 'dead'>('hold');
   const [ritual, setRitual] = useState<any>(null);
-  const [deathLine, setDeathLine] = useState('No eres un puro para nosotros. Te mereces morir.');
+  const [deathLine, setDeathLine] = useState('No eres puro. El círculo te niega y te entrega a la muerte.');
   const eliminatedRef = useRef(false);
   const stageRef = useRef('hold');
   const meIdRef = useRef(me.id);
@@ -131,7 +131,7 @@ export default function PlayPage() {
   function pactoDownload() {
     const c = document.createElement('canvas');
     c.width = 600; c.height = 520;
-    drawContract(c, ['Acepto caminar en la oscuridad cuando el espíritu lo reclame.', 'Entrego mi nombre y mi firma al círculo.', 'No romperé el pacto sellado en sangre digital.', 'Acepto las penalidades que el espíritu imponga.'], pactDisplayName.trim() || 'Invitado', pactoSignature || localStorage.getItem('pactoSignature') || '');
+    drawContract(c, ['Entrego mi nombre al que espera debajo de la mesa.', 'Cuando me llamen, no voy a soltar el vaso.', 'Mi firma queda en sangre. No hay forma de borrarla.', 'Acepto el precio que el círculo fije por dejarme vivo.'], pactDisplayName.trim() || 'Invitado', pactoSignature || localStorage.getItem('pactoSignature') || '');
   }
   function pactoReset() {
     localStorage.removeItem('pactoSigned'); localStorage.removeItem('pactoName'); localStorage.removeItem('pactoSignature');
@@ -147,18 +147,19 @@ export default function PlayPage() {
 
   function condemn(line?: string) {
     eliminatedRef.current = true;
-    setDeathLine(line || 'No eres un puro para nosotros. Te mereces morir.');
+    setDeathLine(line || 'No eres puro. El círculo te niega y te entrega a la muerte.');
     setScreen('dead');
+    vibrate([140, 50, 140, 50, 320, 70, 520]);
   }
 
   function applyRitual(p: any) {
     setRitual(p);
     const judged = p?.judged?.find((row: any) => row.id === meIdRef.current);
     if (judged) {
-      condemn(judged.line);
+      if (!eliminatedRef.current) condemn(judged.line);
       return;
     }
-    if (eliminatedRef.current) return;
+    eliminatedRef.current = false;
     if (p?.stage === 'pact' && stageRef.current !== 'pact') {
       setPactoSigned(false);
       setPactoSignature('');
@@ -238,9 +239,12 @@ export default function PlayPage() {
     },
     say: (p) => {
       session.set({ say: p });
-      if (p.question && p.question === pendingQuestionRef.current) {
-        setAnswerModal({ question: p.question, text: p.text });
-      }
+    },
+    'say:reveal': (p) => {
+      if (!p?.question || p.question !== pendingQuestionRef.current) return;
+      setAnswerModal({ question: p.question, text: p.text });
+      sfx.reveal();
+      vibrate([90, 40, 180, 50, 320]);
     },
     kick: () => {
       me.clear();
@@ -280,11 +284,10 @@ export default function PlayPage() {
 
   useEffect(() => {
     if (!answerModal) return;
-    // Repite la vibración mientras el mensaje está abierto; algunos
-    // navegadores requieren interacción previa y pueden ignorarla.
-    const pulse = () => vibrate([180, 70, 180, 70, 420]);
+    const waiting = !answerModal.text;
+    const pulse = () => vibrate(waiting ? [24] : [160, 60, 160, 60, 360]);
     pulse();
-    vibrationRef.current = window.setInterval(pulse, 1100);
+    vibrationRef.current = window.setInterval(pulse, waiting ? 2400 : 1400);
     return () => {
       if (vibrationRef.current !== null) window.clearInterval(vibrationRef.current);
       vibrationRef.current = null;
@@ -295,6 +298,14 @@ export default function PlayPage() {
   useEffect(() => {
     setHandsLevel(session.hands, MAX_PARTICIPANTS);
   }, [session.hands]);
+
+  useEffect(() => {
+    if (screen !== 'dead') return;
+    const pulse = () => vibrate([140, 50, 140, 50, 320, 70, 520]);
+    pulse();
+    const id = window.setInterval(pulse, 1600);
+    return () => window.clearInterval(id);
+  }, [screen]);
 
   useEffect(() => {
     if (!hold.holding) return;
@@ -349,7 +360,7 @@ export default function PlayPage() {
     const text = question.trim();
     pendingQuestionRef.current = text;
     setAnswerModal({ question: text });
-    vibrate([220, 60, 220, 60, 500]);
+    vibrate([36, 40, 36]);
     socketRef.current?.emit('ask', { text }, (res: any) => {
       if (res?.ok) {
         setQuestion('');
@@ -438,7 +449,7 @@ export default function PlayPage() {
   }
 
   const stageLabel = screen === 'dead'
-    ? 'Fuera'
+    ? 'Condenado'
     : ritual?.stage === 'questions'
       ? 'Preguntas'
       : ritual?.stage === 'cauldron'
@@ -468,25 +479,28 @@ export default function PlayPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.04)', padding: '5px 12px', borderRadius: 99, border: '1px solid var(--l)' }}>
           <span className="status-mark" aria-hidden="true" />
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: hold.holding ? '#5dffa8' : 'var(--mu)' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: hold.holding ? '#ffb3c0' : 'var(--mu)' }}>
             {session.hands}/{session.total}
           </span>
         </div>
       </div>
 
       {screen === 'dead' && (
-        <div className="card screen-panel" style={{ textAlign: 'center', border: '1px solid rgba(255,59,92,0.55)', background: 'linear-gradient(180deg, #2a0610 0%, #07040c 100%)' }}>
-          <div style={{ letterSpacing: '0.22em', color: 'var(--r)', fontSize: 12, fontWeight: 800 }}>EL CÍRCULO HABLA</div>
-          <h2 style={{ fontSize: 26, lineHeight: 1.25, margin: '16px 0 8px', color: '#fff' }}>{deathLine}</h2>
-          <p style={{ color: 'var(--mu)', fontSize: 13, margin: 0 }}>Tu alma ya no tiene lugar en la mesa.</p>
+        <div className="death-screen" role="alert" onPointerDown={() => vibrate([140, 50, 140, 50, 320])}>
+          <div className="death-flash" />
+          <div className="death-copy">
+            <div className="death-kicker">EL CÍRCULO TE NOMBRÓ</div>
+            <h2>{deathLine}</h2>
+            <p>No cierres los ojos. Ya no estás en la mesa.</p>
+          </div>
         </div>
       )}
 
       {screen === 'pacto' && (
         <div className="card screen-panel" style={{ border: '1px solid rgba(255,59,92,0.3)' }}>
-          <h3 style={{ margin: 0, fontSize: 18, color: 'var(--r)' }}>PACTO CON EL ESPÍRITU</h3>
+          <h3 style={{ margin: 0, fontSize: 18, color: 'var(--r)' }}>EL PACTO</h3>
           <div style={{ background: 'rgba(0,0,0,0.6)', padding: 14, borderRadius: 12, border: '1px solid var(--l)', fontSize: 12, lineHeight: 1.5, textAlign: 'left', marginBottom: 14, marginTop: 12 }}>
-            {['Acepto caminar en la oscuridad cuando el espíritu lo reclame.', 'Entrego mi nombre y mi firma al círculo.', 'No romperé el pacto sellado en sangre digital.', 'Acepto las penalidades que el espíritu imponga.'].map((c, i) => (
+            {['Entrego mi nombre al que espera debajo de la mesa.', 'Cuando me llamen, no voy a soltar el vaso.', 'Mi firma queda en sangre. No hay forma de borrarla.', 'Acepto el precio que el círculo fije por dejarme vivo.'].map((c, i) => (
               <p key={i} style={{ marginBottom: 6 }}>{i + 1}. {c}</p>
             ))}
           </div>
@@ -502,9 +516,9 @@ export default function PlayPage() {
           )}
           {pactoSigned && (
             <div style={{ textAlign: 'center' }}>
-              <p style={{ color: '#5dffa8', fontWeight: 700, marginBottom: 10 }}>PACTO SELLADO. YA NO HAY SALVACIÓN.</p>
+              <p style={{ color: '#ffb3c0', fontWeight: 700, marginBottom: 10 }}>SELLADO. TU NOMBRE YA NO TE PERTENECE.</p>
               {pactoSignature && <img src={pactoSignature} alt="firma" style={{ background: '#000', borderRadius: 8, width: '100%', maxWidth: 260, border: '1px solid var(--l)', display: 'block', margin: '0 auto 12px' }} />}
-              <button className="btn" style={{ width: '100%' }} onClick={pactoDownload}>Descargar el pacto</button>
+              <button className="btn" style={{ width: '100%' }} onClick={pactoDownload}>Llevarte el pacto</button>
               <button className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={pactoReset}>Firmar de nuevo</button>
             </div>
           )}
@@ -515,16 +529,16 @@ export default function PlayPage() {
       {screen === 'hold' && (
         <div ref={panelRef} className="card screen-panel" style={{ textAlign: 'center' }}>
           <p className="spirit-text" style={{ fontSize: '1.15rem', color: hold.holding ? '#fff' : 'var(--mu)', marginBottom: 4 }}>
-            {hold.holding ? '«Tu energía fluye con el vaso...»' : 'Apoyá tu dedo sobre el vaso sin soltar'}
+            {hold.holding ? '«Tu pulso ya está dentro del cristal.»' : 'Apoyá el dedo en el vaso. No lo sueltes.'}
           </p>
 
-          <div className="cup-stage" style={{ margin: '20px auto', width: 220, height: 220, perspective: 600, display: 'grid', placeItems: 'center' }}>
+          <div className="cup-stage">
             <CupScene holding={hold.holding} onStart={() => { vibrate(28); sfx.hold(); hold.start(); }} onStop={() => { sfx.release(); hold.stop(); }} />
           </div>
 
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 99, background: hold.holding ? 'rgba(93,255,168,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hold.holding ? 'rgba(93,255,168,0.3)' : 'var(--l)'}` }}>
-            <span style={{ fontSize: 13, color: hold.holding ? '#5dffa8' : 'var(--mu)', fontWeight: 600 }}>
-              {hold.holding ? 'Sostenés firmemente. El espíritu te escucha.' : 'Esperando tu contacto con la mesa...'}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 99, background: hold.holding ? 'rgba(120,8,18,0.45)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hold.holding ? 'rgba(255,59,92,0.45)' : 'var(--l)'}` }}>
+            <span style={{ fontSize: 13, color: hold.holding ? '#ffb3c0' : 'var(--mu)', fontWeight: 600 }}>
+              {hold.holding ? 'No sueltes. Te está midiendo.' : 'El vaso espera tu dedo.'}
             </span>
           </div>
         </div>
@@ -534,10 +548,10 @@ export default function PlayPage() {
       {screen === 'ask' && (
         <div ref={panelRef} className="card screen-panel">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <h3 style={{ margin: 0, fontSize: 18 }}>Preguntale al espíritu</h3>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Hablale a lo que está debajo</h3>
           </div>
           <p style={{ color: 'var(--mu)', fontSize: 13, marginBottom: 16 }}>
-            Quedan cinco almas. Mandá lo que quieras: cae en la mesa y el espíritu responde.
+            Lo que escribas cae en la mesa. No vas a ver la respuesta hasta que el vaso termine de escribirla.
           </p>
 
           <input 
@@ -545,17 +559,17 @@ export default function PlayPage() {
             value={question} 
             onChange={(e) => setQuestion(e.target.value)} 
             onKeyDown={(e) => { if (e.key === 'Enter') sendAsk(); }}
-            placeholder="¿Hay alguien aquí? ¿Quién morirá primero?..." 
+            placeholder="Preguntá. El vaso decide si responde." 
             maxLength={80} 
           />
 
           <button className="btn" style={{ marginTop: 12, width: '100%' }} onClick={sendAsk}>
-            Enviar al más allá
+            Dejarla caer
           </button>
 
           {questionSent && (
-            <p style={{ color: '#5dffa8', marginTop: 12, fontSize: 13, textAlign: 'center' }}>
-              ✓ Pregunta entregada a la niebla espectral
+            <p style={{ color: '#ffb3c0', marginTop: 12, fontSize: 13, textAlign: 'center' }}>
+              Ya está en la mesa. Esperá al vaso.
             </p>
           )}
         </div>
@@ -695,13 +709,13 @@ export default function PlayPage() {
           <div style={{ letterSpacing: '0.16em', color: 'var(--r)', fontSize: 12, fontWeight: 800 }}>
             {cauldronLeft == null ? 'EL CALDERO' : `${cauldronLeft}s`}
           </div>
-          <h3 style={{ fontSize: 18, margin: '8px 0 6px' }}>El caldero solicita</h3>
+          <h3 style={{ fontSize: 18, margin: '8px 0 6px' }}>El caldero tiene hambre</h3>
           <p style={{ fontSize: 13, color: 'var(--mu)', margin: '0 0 8px' }}>
-            Quien ofrende menos en este lapso será sacrificado.
+            Pedí lo que pide. Quien dé menos se queda adentro.
           </p>
           <p style={{ fontSize: 13, margin: '0 0 12px' }}>
             Vos: <b style={{ color: myScore >= rivalScore ? '#5dffa8' : 'var(--r)' }}>{myScore}</b>
-            <span style={{ color: 'var(--mu)' }}> · la otra alma: {rivalScore}</span>
+            <span style={{ color: 'var(--mu)' }}> · la otra sangre: {rivalScore}</span>
           </p>
            <div className="offering-current" aria-label={`Ofrenda solicitada: ${want}`}>
              {offerings.find((offering) => offering.label.toUpperCase() === want)?.Icon && (() => {
@@ -710,7 +724,7 @@ export default function PlayPage() {
              })()}
            </div>
           <p style={{ fontSize: 13, color: 'var(--mu)', marginBottom: 16 }}>
-            Tocá el elemento para lanzarlo a las llamas de la sesión:
+            Tocá lo que pide y tiralo al fuego:
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -788,13 +802,13 @@ export default function PlayPage() {
       {answerModal && screen !== 'dead' && (
         <div role="dialog" aria-modal="true" aria-live="assertive" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', padding: 20, background: 'rgba(0,0,0,.94)', backdropFilter: 'blur(10px)' }}>
           <div className="card" style={{ width: 'min(440px, 100%)', border: '1px solid var(--r)', boxShadow: '0 0 45px rgba(180,20,35,.55)', textAlign: 'center', animation: 'shake .18s infinite', position: 'relative', zIndex: 10001 }}>
-            <div style={{ color: 'var(--r)', fontSize: 12, letterSpacing: 3, fontWeight: 800 }}>EL ESPÍRITU RESPONDE</div>
+            <div style={{ color: 'var(--r)', fontSize: 12, letterSpacing: 3, fontWeight: 800 }}>{answerModal.text ? 'EL VASO TERMINÓ' : 'EL VASO ESCRIBE'}</div>
             <p style={{ color: 'var(--mu)', fontSize: 13, margin: '18px 0 8px' }}>«{answerModal.question}»</p>
             <p className="spirit-text" style={{ minHeight: 48, fontSize: 22, margin: '10px 0 24px' }}>
-              {answerModal.text ?? 'La niebla está escribiendo tu respuesta…'}
+              {answerModal.text ?? 'Tu pregunta está sobre la mesa. Todavía no mires la respuesta.'}
             </p>
-            <button className="btn danger" style={{ width: '100%' }} onClick={() => { pendingQuestionRef.current = ''; setAnswerModal(null); }}>
-              Cerrar la aparición
+            <button className="btn danger" style={{ width: '100%' }} disabled={!answerModal.text} onClick={() => { pendingQuestionRef.current = ''; setAnswerModal(null); }}>
+              {answerModal.text ? 'Bajar la vista' : 'Esperá a la mesa'}
             </button>
           </div>
         </div>

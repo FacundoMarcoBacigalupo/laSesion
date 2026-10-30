@@ -202,7 +202,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
            text: res.question.text,
            at: res.question.at,
          });
-         scheduler.enqueue('responder_pregunta', 1, { nombre: u.name, questionId: res.question.id }, true, res.question.text);
+         scheduler.enqueue('responder_pregunta', 1, { nombre: u.name, questionId: res.question.id, userId: uid }, true, res.question.text);
          noteRitualAsk(store.session, u.name, res.question.text);
          emitRitual(io, store);
        }
