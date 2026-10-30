@@ -45,8 +45,20 @@ function load(): Env {
   if (parsed.data.NODE_ENV === 'production') {
     if (!parsed.data.DEEPSEEK_API_KEY) console.warn('DEEPSEEK_API_KEY missing');
     if (parsed.data.ADMIN_PASSWORD === 'cambiame') console.warn('ADMIN_PASSWORD default in prod');
-    if (!/^postgres(?:ql)?:\/\//i.test(parsed.data.DATABASE_URL)) {
-      console.error('DATABASE_URL must be a PostgreSQL connection string in production');
+    let databaseUrl: URL;
+    try {
+      databaseUrl = new URL(parsed.data.DATABASE_URL);
+    } catch {
+      console.error('DATABASE_URL must be a valid PostgreSQL connection string in production');
+      process.exit(1);
+    }
+    if (
+      !['postgres:', 'postgresql:'].includes(databaseUrl!.protocol) ||
+      !databaseUrl!.hostname ||
+      !databaseUrl!.username ||
+      databaseUrl!.pathname === '/'
+    ) {
+      console.error('DATABASE_URL must include a PostgreSQL host, username, and database in production');
       process.exit(1);
     }
   }
