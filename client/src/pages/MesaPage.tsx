@@ -374,7 +374,7 @@ export default function MesaPage() {
         )}
 
         {/* SPIRIT TYPED MESSAGE ON BOARD */}
-        <div style={{ 
+        <div className="mesa-spirit-panel" style={{
           minHeight: 88, 
           display: 'flex', 
           flexDirection: 'column', 
@@ -387,12 +387,12 @@ export default function MesaPage() {
           borderRadius: 16,
         }}>
           {sayQuestion && (
-            <p style={{ color: 'var(--mu)', fontSize: 14, fontStyle: 'italic', marginBottom: 6 }}>
+            <p className="mesa-spirit-question" style={{ color: 'var(--mu)', fontSize: 14, fontStyle: 'italic', marginBottom: 6 }}>
               Pregunta: «{sayQuestion}»
             </p>
           )}
           <div id="wr" className="spirit-text mesa-spirit-message" style={{
-            fontSize: 'clamp(28px, 4.5vw, 48px)', 
+            fontSize: 'clamp(22px, 4.5vw, 48px)',
             textShadow: `0 0 25px ${moodColor}` 
           }}>
             {typed || <span style={{ opacity: 0.35, fontSize: 24, fontStyle: 'normal' }}>— Las fuerzas del círculo guardan silencio —</span>}

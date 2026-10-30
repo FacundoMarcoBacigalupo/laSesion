@@ -71,7 +71,28 @@
 
 .mesa-status-mark { width: 8px; height: 8px; border-radius: 50%; background: var(--r); box-shadow: 0 0 14px var(--r); }
 .mesa-offering-icon { display: inline-flex; color: var(--r); vertical-align: middle; margin-left: 8px; }
+.mesa-spirit-panel {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  overflow: visible;
+  transition: min-height 0.2s ease, padding 0.2s ease;
+}
+.mesa-spirit-question {
+  width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
 .mesa-spirit-message {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.25;
   font-style: italic;
   font-weight: 600;
   letter-spacing: 0.045em;
