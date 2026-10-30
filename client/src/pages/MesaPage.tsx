@@ -261,7 +261,7 @@ export default function MesaPage() {
   const handsPct = total > 0 ? (hands / total) * 100 : 0;
 
   return (
-    <>
+    <div ref={containerRef}>
       <BloodWebs />
       {intro && <div className="intro-screen" onClick={enterSession}>
         <div className="intro-mark" aria-hidden="true">L</div>
@@ -270,7 +270,6 @@ export default function MesaPage() {
         <button className="intro-enter" onClick={(event) => { event.stopPropagation(); enterSession(); }}>ENTRAR</button>
       </div>}
       <div 
-      ref={containerRef} 
       style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--tx)', userSelect: 'none', cursor: 'default' }} 
         onClick={() => { if (!intro) enterFs(); }}
     >
@@ -509,6 +508,6 @@ export default function MesaPage() {
       </div>
       </div>
     </div>
-    </>
+    </div>
   );
 }

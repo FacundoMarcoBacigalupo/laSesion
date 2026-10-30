@@ -6,8 +6,11 @@ import { TokenBucket } from '../utils/tokenBucket';
 
 export function authHandshakeMesa(socket: any, next: (err?: Error) => void) {
   const key = socket.handshake.auth?.key ?? socket.handshake.query?.key;
-  if (key !== env.MESA_KEY) return next(new Error('unauthorized'));
-  next();
+  if (key === env.MESA_KEY) return next();
+  authHandshakeAdmin(socket, (err) => {
+    if (err) return next(new Error('unauthorized'));
+    next();
+  });
 }
 
 export function authHandshakeAdmin(socket: any, next: (err?: Error) => void) {
