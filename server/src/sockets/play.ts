@@ -2,7 +2,7 @@ import { EV, MAX_PARTICIPANTS } from '@sesion/shared';
 import { JoinSchema, HoldSchema, VisibilitySchema, AskSchema, VoteSchema, StrokeSchema, SignDoneSchema, OfferSchema, ShakeSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
 import { getBucket, ipOfSocket, rateBuckets } from './middleware';
-import { createUser, resumeUser } from '../domain/users';
+import { createUser, disconnectUser, resumeUser } from '../domain/users';
 import { applyHold } from '../domain/hold';
 import { enqueueQuestion } from '../domain/questions';
 import { castVote } from '../domain/votes';
@@ -276,10 +276,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       const uid = socket.data.userId;
       if (!uid) return;
       const u = store.session.users.get(uid);
-      if (u) {
-        u.connected = false;
-        u.socketId = null;
-        u.lastSeenAt = Date.now();
+      if (u && disconnectUser(u, socket.id)) {
         // ghost after grace 5s handled by interval
         broadcastPlayers(io, store);
       }

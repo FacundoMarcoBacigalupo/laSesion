@@ -36,3 +36,12 @@ export function resumeUser(u: User): User {
   u.lastSeenAt = now();
   return u;
 }
+
+export function disconnectUser(u: User, socketId: string): boolean {
+  if (u.socketId !== socketId) return false;
+  u.connected = false;
+  u.socketId = null;
+  u.holding = false;
+  u.lastSeenAt = now();
+  return true;
+}
