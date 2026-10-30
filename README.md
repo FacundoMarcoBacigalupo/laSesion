@@ -411,7 +411,7 @@ El backend requiere un entorno persistente para mantener las conexiones de Socke
 5. Configura:
    - **Root Directory**: Deja vacío (o `.` para usar la raíz).
    - **Environment**: `Node`
-   - **Build Command**: `npm ci && npm run build`
+   - **Build Command**: `npm ci --include=dev && npm run build`
    - **Start Command**: `npm start`
    - **Plan**: `Free`
 6. En **Environment Variables**, añade:
