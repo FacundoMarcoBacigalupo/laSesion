@@ -1,10 +1,8 @@
 import { EV } from '@sesion/shared';
-import { authHandshakeMesa } from './middleware';
 import type { SessionStore } from '../domain/session';
 
 export function registerMesa(io: any, store: SessionStore) {
   const nsp = io.of('/mesa');
-  nsp.use((socket: any, next: any) => authHandshakeMesa(socket, next));
 
   nsp.on('connection', (socket: any) => {
     // send full state

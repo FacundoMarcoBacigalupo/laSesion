@@ -6,7 +6,7 @@ import { login } from '../lib/api';
 
 export default function AdminLoginPage() {
   const nav = useNavigate();
-  const [pw, setPw] = useState('admin');
+  const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

@@ -17,7 +17,6 @@ const EnvSchema = z.object({
   TRUST_PROXY: z.coerce.number().default(1),
   ADMIN_PASSWORD: z.string().min(1).default('cambiame'),
   JWT_SECRET: z.string().min(8).default('dev-secret-change-me-please-long'),
-  MESA_KEY: z.string().min(1).default('clave-del-proyector'),
   DEEPSEEK_API_KEY: z.string().optional().default(''),
   DEEPSEEK_MODEL: z.string().default('deepseek-chat'),
   DEEPSEEK_BASE_URL: z.string().url().default('https://api.deepseek.com'),

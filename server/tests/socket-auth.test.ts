@@ -1,25 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { env } from '../src/config/env';
-import { authHandshakeMesa } from '../src/sockets/middleware';
+import { authHandshakeAdmin } from '../src/sockets/middleware';
+import { registerMesa } from '../src/sockets/mesa';
 
 function authenticate(socket: any): Error | undefined {
   let result: Error | undefined;
-  authHandshakeMesa(socket, (error) => { result = error; });
+  authHandshakeAdmin(socket, (error) => { result = error; });
   return result;
 }
 
-describe('mesa socket authentication', () => {
-  it('accepts the configured projector key', () => {
-    expect(authenticate({ handshake: { auth: { key: env.MESA_KEY } } })).toBeUndefined();
-  });
-
-  it('accepts an authenticated admin session without exposing the projector key', () => {
+describe('admin socket authentication', () => {
+  it('accepts an authenticated admin session', () => {
     const token = jwt.sign({ admin: true }, env.JWT_SECRET);
     const socket = {
       handshake: {
         headers: { cookie: `admin_token=${token}` },
-        auth: {},
       },
       data: {},
     };
@@ -28,7 +24,24 @@ describe('mesa socket authentication', () => {
     expect(socket.data.admin).toBe(true);
   });
 
-  it('rejects clients without a projector key or admin session', () => {
-    expect(authenticate({ handshake: { auth: {}, headers: {} }, data: {} })).toBeInstanceOf(Error);
+  it('rejects clients without an admin session', () => {
+    expect(authenticate({ handshake: { headers: {} }, data: {} })).toBeInstanceOf(Error);
+  });
+});
+
+describe('public projector socket', () => {
+  it('does not require authentication to connect to /mesa', () => {
+    const namespace = { use: vi.fn(), on: vi.fn(), emit: vi.fn() };
+    const io = { of: vi.fn(() => namespace) };
+    vi.useFakeTimers();
+
+    try {
+      registerMesa(io, {} as any);
+      expect(namespace.use).not.toHaveBeenCalled();
+      expect(namespace.on).toHaveBeenCalledWith('connection', expect.any(Function));
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
   });
 });

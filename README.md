@@ -13,8 +13,9 @@
 | Ruta | Enlace directo | Rol / Destino | Descripción |
 | :--- | :--- | :--- | :--- |
 | **`/`** *(redirige a `/play`)* | [lasesion.mythf.site/](https://lasesion.mythf.site/) | 📱 **Público (Celulares)** | Entrada de los participantes: colocan su nombre, aceptan el consentimiento, sostienen el vaso 3D, mandan preguntas a la cola, votan, firman pactos y participan en el exorcismo. |
-| **`/mesa`** | [lasesion.mythf.site/mesa](https://lasesion.mythf.site/mesa) *(o `?key=clave-del-proyector`)* | 📽️ **Pantalla / Proyector** | El tablero Ouija colectivo gigante con el **código QR** para escanear, letras que se encienden al teclear el espíritu, caldero de ofrendas con física en tiempo real y medidor de exorcismo. |
-| **`/admin`** | [lasesion.mythf.site/admin](https://lasesion.mythf.site/admin) *(login en `/admin/login`)* | 🎛️ **Panel del Director / Admin** | El centro de control: monitor de usuarios, control de fases, preguntas rápidas, disparador de víctima, pactos, calibración de IA y contraseña predeterminada (`admin`). |
+| **`/mesa`** | [lasesion.mythf.site/mesa](https://lasesion.mythf.site/mesa) | 📽️ **Pantalla / Proyector · Público** | Acceso libre para la pantalla del proyector: tablero Ouija colectivo gigante, código QR, letras en vivo, caldero y medidor de exorcismo. |
+| **`/play`** | [lasesion.mythf.site/play](https://lasesion.mythf.site/play) | 📱 **Participantes · Público** | Acceso libre para los celulares; cada participante ingresa su nombre y consentimiento. |
+| **`/admin`** | [lasesion.mythf.site/admin](https://lasesion.mythf.site/admin) *(requiere login; `/admin/login`)* | 🎛️ **Panel del Director / Admin** | Centro de control protegido: monitor de usuarios, fases, preguntas, víctima, pactos y configuración de IA. |
 
 ---
 
@@ -75,7 +76,7 @@ laSesion/
 │       │   ├── middleware.ts    # auth handshake, rate limit por evento (token bucket), ip
 │       │   ├── emit.ts          # helpers: toPlayers, toMesa, toAdmin, toUser
 │       │   ├── play.ts          # handlers público: join, hold, visibility, ask, vote, sign, offer, shake
-│       │   ├── mesa.ts          # handlers proyector: auth(key), state, say:done
+│       │   ├── mesa.ts          # handlers públicos del proyector: state, say:done
 │       │   └── admin.ts         # handlers director: dir:* comandos + admin:state cada 1s
 │       ├── domain/              # LÓGICA PURA (sin socket, sin DB) — 100% testeable
 │       │   ├── session.ts       # SessionStore: estado en memoria + selectores + snapshot/restore
@@ -212,7 +213,6 @@ npm run dev
 | `TRUST_PROXY` | No | `1` detrás de proxy (Render, Nginx) para IP real |
 | `ADMIN_PASSWORD` | **Sí** | Contraseña admin. Comparada con `crypto.timingSafeEqual` |
 | `JWT_SECRET` | **Sí** | Secreto firma cookie admin (httpOnly, Secure, SameSite=Lax, 12h) |
-| `MESA_KEY` | **Sí** | Clave query `?key=` para acceder a `/mesa` |
 | `GEMINI_API_KEY` | **Sí (prod)** | **Solo backend**. Nunca en cliente. De Google AI Studio |
 | `GEMINI_MODEL` | No | `gemini-2.5-flash` (verificar en docs actuales) |
 | `AI_ENABLED` | No | `true`/`false` — permite apagar IA y usar solo fallbacks |
@@ -313,7 +313,6 @@ Tu arquitectura actual configurada:
    - `TRUST_PROXY` = `1`
    - `ADMIN_PASSWORD` = <set-in-provider-dashboard>
    - `JWT_SECRET` = <set-in-provider-dashboard>
-   - `MESA_KEY` = <set-in-provider-dashboard>
    - `DEEPSEEK_API_KEY` = <set-in-provider-dashboard>
    - `DEEPSEEK_MODEL` = `deepseek-chat`
    - `DEEPSEEK_BASE_URL` = `https://api.deepseek.com`
@@ -422,7 +421,6 @@ El backend requiere un entorno persistente para mantener las conexiones de Socke
    - `TRUST_PROXY`: `1`
    - `ADMIN_PASSWORD`: `admin` (o tu clave deseada)
    - `JWT_SECRET`: una cadena larga aleatoria (ej. `clave-secreta-sesion-2026-halloween`)
-   - `MESA_KEY`: `clave-del-proyector`
    - `GEMINI_API_KEY`: Tu API key copiada de Google AI Studio.
    - `GEMINI_MODEL`: `gemini-2.5-flash`
    - `DATABASE_URL`: Tu URL de Turso o Supabase.
@@ -471,8 +469,8 @@ El backend requiere un entorno persistente para mantener las conexiones de Socke
 
 Una vez desplegado:
 1. **Público (Celulares)**: `https://tu-proyecto.vercel.app/`
-2. **Proyector / Tablero**: `https://tu-proyecto.vercel.app/mesa?key=clave-del-proyector` (muestra el QR para que los invitados escaneen).
-3. **Admin / Director**: `https://tu-proyecto.vercel.app/admin` (ingresa con contraseña `admin`).
+2. **Proyector / Tablero**: `https://tu-proyecto.vercel.app/mesa` (muestra el QR para que los invitados escaneen).
+3. **Admin / Director**: `https://tu-proyecto.vercel.app/admin` (ingresa con la contraseña configurada en `ADMIN_PASSWORD`).
 
 ---
 
@@ -482,7 +480,7 @@ Una vez desplegado:
 
 ### 1. Preparación (15 min antes)
 - Despierta Render (ping `/health`)
-- Abre proyector en `/mesa?key=TU_MESA_KEY` (pantalla completa, 16:9)
+- Abre el proyector en `/mesa` (pantalla completa, 16:9; acceso público)
 - Verifica QR grande visible
 
 ### 2. Público entra
@@ -565,7 +563,7 @@ npm test
 - [ ] Exorcismo: iPhone pide permiso; botón alternativo funciona; barra decae sola; al 100% espíritu se va
 - [ ] Apagar `GEMINI_API_KEY`: todo sigue funcionando con fallbacks
 - [ ] Reiniciar servidor: celulares reconectan y restauran sesión (token localStorage)
-- [ ] `/admin` sin login redirige; `/mesa` sin key no abre
+- [ ] `/admin` requiere login; `/mesa` y `/play` son públicos
 - [ ] Lighthouse móvil `/play`: carga inicial < 3s en 4G
 
 ---

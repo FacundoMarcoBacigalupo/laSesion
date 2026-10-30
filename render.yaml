@@ -19,8 +19,6 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: MESA_KEY
-        sync: false
       - key: DEEPSEEK_API_KEY
         sync: false
       - key: DEEPSEEK_MODEL

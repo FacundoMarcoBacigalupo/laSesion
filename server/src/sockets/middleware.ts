@@ -4,15 +4,6 @@ import { extractIp } from '../services/ip';
 import jwt from 'jsonwebtoken';
 import { TokenBucket } from '../utils/tokenBucket';
 
-export function authHandshakeMesa(socket: any, next: (err?: Error) => void) {
-  const key = socket.handshake.auth?.key ?? socket.handshake.query?.key;
-  if (key === env.MESA_KEY) return next();
-  authHandshakeAdmin(socket, (err) => {
-    if (err) return next(new Error('unauthorized'));
-    next();
-  });
-}
-
 export function authHandshakeAdmin(socket: any, next: (err?: Error) => void) {
   try {
     const cookieHeader = socket.handshake.headers?.cookie ?? '';
