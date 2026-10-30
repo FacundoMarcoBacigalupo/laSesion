@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build -w shared && npm run build -w client",
+  "fluid": true,
+  "functions": {
+    "server.ts": {
+      "maxDuration": 800,
+      "includeFiles": "client/dist/**"
+    }
+  }
+}

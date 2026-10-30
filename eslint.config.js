@@ -22,6 +22,7 @@ module.exports = [
       'shared/dist/**',
       'server/dist/**',
       'client/dist/**',
+      'server.ts',
     ],
   },
 

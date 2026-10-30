@@ -11,7 +11,7 @@ type Db = { execute: (query: string | { sql: string; args: unknown[] }) => Promi
 
 export function getDb(): Db {
   if (env.DATABASE_URL.startsWith('postgres')) {
-    if (!pool) pool = new Pool({ connectionString: env.DATABASE_URL, max: 5, ssl: { rejectUnauthorized: false } });
+    if (!pool) pool = new Pool({ connectionString: env.DATABASE_URL, max: 5, connectionTimeoutMillis: 8000, ssl: { rejectUnauthorized: false } });
     return { execute: async (input) => {
       const sql = typeof input === 'string' ? input : input.sql.replace(/\?/g, () => `$${++placeholder}`);
       const args = typeof input === 'string' ? [] : input.args;

@@ -13,10 +13,11 @@ export function authRouter() {
       return res.status(401).json({ ok: false, error: 'bad password' });
     }
     const token = jwt.sign({ admin: true }, env.JWT_SECRET, { expiresIn: '12h' });
+    const split = env.NODE_ENV === 'production';
     res.cookie('admin_token', token, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: env.NODE_ENV === 'production',
+      sameSite: split ? 'none' : 'lax',
+      secure: split,
       maxAge: 12 * 60 * 60 * 1000,
     });
     res.json({ ok: true });

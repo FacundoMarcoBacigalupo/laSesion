@@ -32,10 +32,12 @@ export function createApp(store: SessionStore) {
   app.use(configRouter());
 
   // serve client dist in production
-  const clientDist = path.resolve(process.cwd(), '..', 'client', 'dist');
-  // also try relative to server dist
-  const alt = path.resolve(__dirname, '..', '..', 'client', 'dist');
-  const distDir = fs.existsSync(clientDist) ? clientDist : alt;
+  const candidates = [
+    path.resolve(process.cwd(), 'client', 'dist'),
+    path.resolve(process.cwd(), '..', 'client', 'dist'),
+    path.resolve(__dirname, '..', '..', 'client', 'dist'),
+  ];
+  const distDir = candidates.find((dir) => fs.existsSync(dir)) ?? candidates[0]!;
   app.use(express.static(distDir));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();

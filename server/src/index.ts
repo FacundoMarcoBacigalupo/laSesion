@@ -9,7 +9,7 @@ import { AiScheduler } from './ai/scheduler';
 import { restoreSession, startPersistence } from './services/persistence';
 import { newId } from './utils/ids';
 
-async function main() {
+async function main(): Promise<http.Server> {
   await initDb();
   const store = new SessionStore(newId(10));
 
@@ -36,10 +36,16 @@ async function main() {
 
   scheduler.start();
   startPersistence(store);
+  return server;
+}
 
+const server = await main();
+
+// ponytail: una sala en memoria por instancia. Si Vercel abre otra, la mesa y los celulares se parten; Redis si pasa.
+if (!process.env.VERCEL) {
   server.listen(env.PORT, () => {
     logger.info({ port: env.PORT }, 'server listening');
   });
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+export default server;

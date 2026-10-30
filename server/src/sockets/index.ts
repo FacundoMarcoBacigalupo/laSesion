@@ -8,7 +8,7 @@ import { registerAdmin } from './admin';
 export function createIo(httpServer: any, store: SessionStore, scheduler: AiScheduler) {
   const io = new Server(httpServer, {
     cors: { origin: true, credentials: true },
-    transports: ['websocket', 'polling'],
+    transports: process.env.VERCEL ? ['websocket'] : ['websocket', 'polling'],
     pingInterval: 20000,
     pingTimeout: 25000,
     perMessageDeflate: false,
