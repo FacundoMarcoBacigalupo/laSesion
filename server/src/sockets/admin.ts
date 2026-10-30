@@ -17,6 +17,7 @@ import { newId } from '../utils/ids';
 import { purgeSessionData } from '../services/purge';
 import { logEvent } from '../db/repos/events';
 import { banIp } from '../services/bans';
+import { env } from '../config/env';
 
 let mockInterval: any = null;
 let mockActive = false;
@@ -453,6 +454,8 @@ function adminState(store: SessionStore) {
       fallbackForced: s.ai.fallbackForced,
       providerStatus: s.ai.providerStatus,
       providerError: s.ai.providerError,
+      calls: s.ai.calls ?? 0,
+      callBudget: env.AI_MAX_CALLS,
     },
     hands: store.handsCount(),
     total: store.totalCount(),

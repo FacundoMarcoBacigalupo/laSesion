@@ -22,6 +22,7 @@ import { logOffering } from '../db/repos/offerings';
 import { saveAdminConversation } from '../db/repos/adminConversations';
 import type { SessionStore } from '../domain/session';
 import type { AiScheduler } from '../ai/scheduler';
+import { env } from '../config/env';
 
 export function registerPlay(io: any, store: SessionStore, scheduler: AiScheduler) {
   const nsp = io.of('/play');
@@ -159,7 +160,9 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
           u.ghost = false;
           io.of('/play').to(socket.id).emit(EV.YOU_GHOST, { on: false });
           io.of('/mesa').emit(EV.MESA_UNGHOST, { userId: u.id });
-          scheduler.enqueue('fantasma', 2, { name: u.name, return: true }, false);
+          const back = `${u.name} volvió. El círculo lo siente.`;
+          io.of('/mesa').emit(EV.MESA_SAY, { id: newId(8), text: back, question: undefined, mood: store.session.mood, force: false });
+          io.of('/play').emit(EV.SAY, { id: newId(8), text: back, question: undefined, mood: store.session.mood, force: false });
         }
       }
       u.lastSeenAt = Date.now();
@@ -267,8 +270,6 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
       upsertPact(store.session.id, pact).catch(() => {});
       logEvent(store.session.id, uid, 'pact:signed', { pactId: pact.id }).catch(() => {});
-      // emit say
-      scheduler.enqueue('latido', 5); // not needed; say directly
       io.of('/mesa').emit(EV.MESA_SAY, { id: newId(8), text: 'FIRMADO. YA NO HAY VUELTA ATRAS.', question: undefined, mood: store.session.mood, force: true });
       io.of('/play').emit(EV.SAY, { id: newId(8), text: 'FIRMADO. YA NO HAY VUELTA ATRAS.', question: undefined, mood: store.session.mood, force: true });
       ack?.({ ok: true });
@@ -293,7 +294,6 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       if (!u || u.eliminated || store.session.ritual.stage !== 'cauldron') return;
       const kind = (v.data as any).kind as 'pizza' | 'wifi' | 'ex' | 'battery';
       const matched = kind === store.session.offerings.want;
-      const repeat = (store.session.offerings.counts[kind] ?? 0) + 1 >= 3;
       const res = applyOffering(store.session, uid, kind, u.name);
       if (matched) scoreRitualOffering(store.session, uid);
       emitRitual(io, store);
@@ -306,8 +306,9 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       // haptic? no
       logOffering(store.session.id, uid, kind, res.points).catch(() => {});
       logEvent(store.session.id, uid, 'offer', { kind }).catch(() => {});
-      // call AI ofrenda
-      scheduler.enqueue('ofrenda', 3, { kind, matched, repeat, byName: u.name, matchedText: res.text }, true);
+      const said = newId(8);
+      io.of('/mesa').emit(EV.MESA_SAY, { id: said, text: res.text, question: undefined, mood: store.session.mood, force: true });
+      io.of('/play').emit(EV.SAY, { id: said, text: res.text, question: undefined, mood: store.session.mood, force: true });
       // also update mood color? mood already maybe; set mood based on points? spec mood thresholds. We'll set mood via AI response or keep. Simple: if points>=9 mood calmo? Not exact. Leave AI.
       io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
     });
@@ -330,7 +331,6 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
         io.of('/mesa').emit(EV.MESA_EXORCISM_WON, {});
         io.of('/mesa').emit(EV.MESA_SAY, { id: newId(8), text: 'NO... ME VOY... PERO VUELVO.', question: undefined, mood: 'calmo', force: true });
         io.of('/play').emit(EV.SAY, { id: newId(8), text: 'NO... ME VOY... PERO VUELVO.', question: undefined, mood: 'calmo', force: true });
-        scheduler.enqueue('exorcismo_fin', 2, {}, true);
         // vibrate clients
         io.of('/play').emit(EV.HAPTIC, { pattern: [300, 100, 300, 100, 300] });
       }
@@ -389,13 +389,13 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       }
       if (u.ghost) continue;
       if (!u.connected && u.lastSeenAt && nowTs - u.lastSeenAt > 5000) {
-        ghostUser(io, store, scheduler, u);
+        ghostUser(io, store, u);
       }
       if (u.hidden && u.hiddenSince && nowTs - u.hiddenSince > 3000) {
-        ghostUser(io, store, scheduler, u);
+        ghostUser(io, store, u);
       }
       if (!u.holding && u.releasedAt && (store.session.phase === 'SESSION' || store.session.phase === 'VOTING' || store.session.phase === 'VICTIM') && nowTs - u.releasedAt > 4000) {
-        ghostUser(io, store, scheduler, u);
+        ghostUser(io, store, u);
       }
     }
     if (participantsRemoved) {
@@ -454,7 +454,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
   }, 300);
 }
 
-function ghostUser(io: any, store: SessionStore, scheduler: AiScheduler, u: any) {
+function ghostUser(io: any, store: SessionStore, u: any) {
   if (u.ghost) return;
   u.ghost = true;
   u.ghostSince = Date.now();
@@ -466,7 +466,6 @@ function ghostUser(io: any, store: SessionStore, scheduler: AiScheduler, u: any)
   io.of('/mesa').emit(EV.MESA_GHOST, { userId: u.id, name: u.name, question: distorted });
   io.of('/play').emit(EV.SAY, { id: newId(8), text: `${u.name} ya no está... pero sigue acá. ${distorted}`, question: undefined, mood: store.session.mood, force: false });
   io.of('/mesa').emit(EV.MESA_SAY, { id: newId(8), text: `${u.name} ya no está... pero sigue acá. ${distorted}`, question: undefined, mood: store.session.mood, force: false });
-  scheduler.enqueue('fantasma', 2, { nombre: u.name, pregunta: distorted }, true);
   broadcastPlayers(io, store);
 }
 
@@ -531,7 +530,7 @@ function adminState(store: SessionStore) {
     pact: s.pact,
     offerings: { counts: s.offerings.counts, points: s.offerings.points, want: s.offerings.want, offendedKinds: [...s.offerings.offendedKinds] },
     exorcism: { active: s.exorcism.active, energy: s.exorcism.energy },
-    ai: { busy: s.ai.busy, lastAt: s.ai.lastAt, breakerOpen: s.ai.breakerOpen, fallbackForced: s.ai.fallbackForced, providerStatus: s.ai.providerStatus },
+    ai: { busy: s.ai.busy, lastAt: s.ai.lastAt, breakerOpen: s.ai.breakerOpen, fallbackForced: s.ai.fallbackForced, providerStatus: s.ai.providerStatus, calls: s.ai.calls ?? 0, callBudget: env.AI_MAX_CALLS },
     hands: store.handsCount(),
     total: store.totalCount(),
   };

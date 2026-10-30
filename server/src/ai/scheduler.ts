@@ -11,6 +11,7 @@ import { logger } from '../utils/logger';
 import { logAi } from '../db/repos/aiLogs';
 import { now, sleep } from '../utils/time';
 import { moderateText } from '../services/moderation';
+import { isLocalPedido, spendsModel } from './budget';
 
 type EmitSay = (text: string, question: string | undefined, mood: string, force: boolean, id: string) => void;
 type EmitAdminPrompt = (
@@ -35,7 +36,6 @@ export class AiScheduler {
   private generation = 0;
   private emitSay: EmitSay;
   private emitAdminPrompt: EmitAdminPrompt;
-  private latidoTimer: NodeJS.Timeout | null = null;
   private exorcismTimer: NodeJS.Timeout | null = null;
 
   constructor(store: SessionStore, emitSay: EmitSay, emitAdminPrompt: EmitAdminPrompt) {
@@ -51,12 +51,10 @@ export class AiScheduler {
   }
 
   start() {
-    this.latidoTimer = setInterval(() => this.maybeLatido(), env.AI_HEARTBEAT_MS);
     this.exorcismTimer = setInterval(() => this.exorcismTick(), 300);
   }
 
   stop() {
-    if (this.latidoTimer) clearInterval(this.latidoTimer);
     if (this.exorcismTimer) clearInterval(this.exorcismTimer);
   }
 
@@ -71,6 +69,7 @@ export class AiScheduler {
     this.queue = [];
     this.callTimestamps = [];
     this.lastCallAt = 0;
+    this.store.session.ai.calls = 0;
     this.breaker.reset();
   }
 
@@ -115,7 +114,8 @@ export class AiScheduler {
     // RPM check
     const windowStart = Date.now() - 60000;
     this.callTimestamps = this.callTimestamps.filter((t) => t > windowStart);
-    const useFallback = s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM;
+    const capped = !spendsModel(job.pedido, s.ai.calls ?? 0, env.AI_MAX_CALLS);
+    const useFallback = capped || s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM;
     try {
       await this.execute(job, useFallback, generation);
     } catch (error) {
@@ -146,15 +146,20 @@ export class AiScheduler {
     let fallback = useFallback;
     let ok = false;
     let latencyMs = 0;
-    s.ai.providerStatus = !env.AI_ENABLED
-      ? 'disabled'
-      : !env.DEEPSEEK_API_KEY
-        ? 'unconfigured'
-        : useFallback
-          ? 'fallback'
-          : 'checking';
+    const local = isLocalPedido(pedido);
+    s.ai.providerStatus = local
+      ? s.ai.providerStatus
+      : !env.AI_ENABLED
+        ? 'disabled'
+        : !env.DEEPSEEK_API_KEY
+          ? 'unconfigured'
+          : useFallback
+            ? 'fallback'
+            : 'checking';
 
     if (!useFallback && env.AI_ENABLED && env.DEEPSEEK_API_KEY) {
+      s.ai.calls = (s.ai.calls ?? 0) + 1;
+      this.callTimestamps.push(Date.now());
       try {
         const r = await callDeepSeek(env.DEEPSEEK_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
         latencyMs = r.latencyMs;
@@ -184,49 +189,10 @@ export class AiScheduler {
             logger.warn({ err: error, pedido }, 'Could not parse DeepSeek response');
           }
         } else {
-          // retry once on network error
-          if (/network|fetch|abort/i.test(r.error ?? '')) {
-            const r2 = await callDeepSeek(env.DEEPSEEK_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
-            latencyMs = r2.latencyMs;
-            if (r2.ok) {
-              try {
-                const parsed = JSON.parse(r2.raw);
-                const schema = schemaForPedido(pedido);
-                const v = schema.safeParse(parsed);
-                if (v.success) {
-                  const mod = moderateText(v.data.texto ?? v.data.text ?? '');
-                  const texto = mod.ok ? mod.text : (v.data.texto ?? v.data.text ?? '');
-                  result = { texto, humor: v.data.humor ?? s.mood, clausulas: v.data.clausulas };
-                  ok = true;
-                  s.ai.providerStatus = 'connected';
-                  s.ai.providerError = undefined;
-                  this.breaker.recordSuccess();
-                } else {
-                  fallback = true;
-                  s.ai.providerStatus = 'error';
-                  s.ai.providerError = describeValidationError(v.error.issues[0]);
-                  logger.warn({ pedido, issues: v.error.issues }, 'DeepSeek retry response did not match the expected schema');
-                }
-              } catch (error) {
-                fallback = true;
-                s.ai.providerStatus = 'error';
-                s.ai.providerError = 'DeepSeek respondió con un JSON inválido.';
-                logger.warn({ err: error, pedido }, 'Could not parse DeepSeek retry response');
-              }
-            } else {
-              fallback = true;
-              s.ai.providerStatus = 'error';
-              s.ai.providerError = describeProviderError(r2.error);
-              this.breaker.recordFail();
-            }
-          } else {
-            fallback = true;
-            s.ai.providerStatus = 'error';
-            s.ai.providerError = describeProviderError(r.error);
-            // 4xx/429 no retry
-            if (!/^4/.test(r.error ?? '')) this.breaker.recordFail();
-            else this.breaker.recordFail();
-          }
+          fallback = true;
+          s.ai.providerStatus = 'error';
+          s.ai.providerError = describeProviderError(r.error);
+          this.breaker.recordFail();
         }
 
         if (generation !== this.generation) return;
@@ -239,10 +205,12 @@ export class AiScheduler {
       }
     } else {
       fallback = true;
-      if (s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM) {
+      if ((s.ai.calls ?? 0) >= env.AI_MAX_CALLS && !isLocalPedido(pedido)) {
+        s.ai.providerStatus = 'fallback';
+        s.ai.providerError = `Cupo del rito: ${env.AI_MAX_CALLS} respuestas. Reiniciá el rito para otras ${env.AI_MAX_CALLS}.`;
+      } else if (s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM) {
         s.ai.providerStatus = env.AI_ENABLED && env.DEEPSEEK_API_KEY ? 'fallback' : s.ai.providerStatus;
       }
-      logger.warn({ aiEnabled: env.AI_ENABLED, hasApiKey: !!env.DEEPSEEK_API_KEY, forced: s.ai.fallbackForced, breaker: this.breaker.isOpen(), rpm: this.callTimestamps.length }, 'AI fallback selected before API call');
     }
 
     if (!ok) {
@@ -257,7 +225,6 @@ export class AiScheduler {
 
     latencyMs = latencyMs || (Date.now() - t0);
     this.lastCallAt = Date.now();
-    this.callTimestamps.push(this.lastCallAt);
 
     // update mood
     if (result?.humor) {
@@ -279,15 +246,6 @@ export class AiScheduler {
     this.emitAdminPrompt(pedido, prompt, result, latencyMs, fallback, job.question, job.extra?.questionId);
 
     logAi(s.id, pedido, prompt, result, ok, latencyMs, fallback).catch(() => {});
-  }
-
-  private maybeLatido() {
-    const s = this.store.session;
-    if (s.phase === 'LOBBY' || s.phase === 'END') return;
-    if (s.ai.busy || s.sayDonePending) return;
-    const hands = this.store.session.users ? [...this.store.session.users.values()].filter((u) => u.connected && u.holding).length : 0;
-    if (hands === 0) return;
-    this.enqueue('latido', 10);
   }
 
   private exorcismTick() {

@@ -88,6 +88,7 @@ export function resetRitual(session: Session): void {
   session.ritual.roomSize = roomSize;
   session.say = null;
   session.sayDonePending = false;
+  session.ai.calls = 0;
   for (const user of session.users.values()) {
     user.eliminated = false;
     user.eliminationLine = undefined;

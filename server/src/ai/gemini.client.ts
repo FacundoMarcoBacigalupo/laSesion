@@ -24,7 +24,17 @@ export async function callDeepSeek(model: string, system: string, userPayload: a
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const url = `${env.DEEPSEEK_BASE_URL.replace(/\/$/, '')}/chat/completions`;
-  const body = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: JSON.stringify(userPayload) + '\n{"texto":"máx 160","humor":"calmo|furioso|hambriento|burlon"}' }], response_format: { type: 'json_object' }, max_tokens: 220, temperature: 0.7, stream: false };
+  // deepseek-chat / deepseek-reasoner se dieron de baja. Sin este apagado, el modelo piensa y cobra el razonamiento como salida.
+  const resolved = model === 'deepseek-chat' || model === 'deepseek-reasoner' ? 'deepseek-flash' : model;
+  const body = {
+    model: resolved,
+    messages: [{ role: 'system', content: system }, { role: 'user', content: JSON.stringify(userPayload) + '\n{"texto":"máx 160","humor":"calmo|furioso|hambriento|burlon"}' }],
+    response_format: { type: 'json_object' },
+    thinking: { type: 'disabled' },
+    max_tokens: 220,
+    temperature: 0.7,
+    stream: false,
+  };
   try {
     const res = await fetch(url, {
       method: 'POST',

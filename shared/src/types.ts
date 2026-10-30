@@ -116,6 +116,7 @@ export type AiState = {
   failCount: number;
   breakerUntil: number;
   fallbackForced: boolean;
+  calls: number;
   providerStatus?: 'disabled' | 'unconfigured' | 'untested' | 'checking' | 'connected' | 'error' | 'fallback';
   providerError?: string;
 };

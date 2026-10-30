@@ -116,9 +116,11 @@ describe('ritual', () => {
     tickRitual(store.session, 0);
     tickRitual(store.session, RITUAL_HOLD_MS);
     expect(store.session.ritual.stage).toBe('questions');
+    store.session.ai.calls = 15;
     resetRitual(store.session);
     expect(store.session.ritual.stage).toBe('hold');
     expect(store.session.ritual.roomSize).toBe(4);
+    expect(store.session.ai.calls).toBe(0);
     expect([...store.session.users.values()].every((user) => !user.eliminated && !user.holding)).toBe(true);
   });
 
