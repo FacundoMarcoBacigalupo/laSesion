@@ -10,17 +10,38 @@ export class SessionStore {
   session: Session;
 
   constructor(id?: string) {
-    this.session = createSession(id ?? newId(10));
+    const startedAt = now();
+    this.session = {
+      id: id ?? newId(10),
+      startedAt,
+      phase: 'LOBBY',
+      mood: 'calmo',
+      tension: 0,
+      users: new Map(),
+      queue: [],
+      history: [],
+      votes: new Map(),
+      victimId: null,
+      willText: null,
+      pact: null,
+      offerings: {
+        counts: Object.fromEntries(OFFER_KINDS.map((k) => [k, 0])) as Record<OfferKind, number>,
+        points: 0,
+        want: OFFER_KINDS[Math.floor(Math.random() * OFFER_KINDS.length)] as OfferKind,
+        offendedKinds: new Set(),
+      },
+      exorcism: { active: false, energy: 0, shakers: new Map() },
+      ai: { busy: false, lastAt: 0, lastEvent: '', breakerOpen: false, failCount: 0, breakerUntil: 0, fallbackForced: false },
+      say: null,
+      dropsLast30: [],
+      recentDrops: [],
+      aiLastSayDoneAt: 0,
+      sayDonePending: false,
+      ritual: createRitual(),
+    };
   }
 
   get id() { return this.session.id; }
-
-  reset() {
-    const previous = this.session;
-    this.session = createSession(previous.id);
-    this.session.ai.providerStatus = previous.ai.providerStatus;
-    this.session.ai.fallbackForced = previous.ai.fallbackForced;
-  }
 
   addUser(u: User) { this.session.users.set(u.id, u); }
   getUser(id: string) { return this.session.users.get(id); }
@@ -107,36 +128,4 @@ export class SessionStore {
     }
     if (s.ai) this.session.ai = s.ai;
   }
-}
-
-function createSession(id: string): Session {
-  const startedAt = now();
-  return {
-    id,
-    startedAt,
-    phase: 'LOBBY',
-    mood: 'calmo',
-    tension: 0,
-    users: new Map(),
-    queue: [],
-    history: [],
-    votes: new Map(),
-    victimId: null,
-    willText: null,
-    pact: null,
-    offerings: {
-      counts: Object.fromEntries(OFFER_KINDS.map((k) => [k, 0])) as Record<OfferKind, number>,
-      points: 0,
-      want: OFFER_KINDS[Math.floor(Math.random() * OFFER_KINDS.length)] as OfferKind,
-      offendedKinds: new Set(),
-    },
-    exorcism: { active: false, energy: 0, shakers: new Map() },
-    ai: { busy: false, lastAt: 0, lastEvent: '', breakerOpen: false, failCount: 0, breakerUntil: 0, fallbackForced: false },
-    say: null,
-    dropsLast30: [],
-    recentDrops: [],
-    aiLastSayDoneAt: 0,
-    sayDonePending: false,
-    ritual: createRitual(),
-  };
 }
