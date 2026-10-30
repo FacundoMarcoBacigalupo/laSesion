@@ -79,9 +79,13 @@ export default function MesaPage() {
     queue: (p) => setQueueSize(p.size),
     votes: () => {},
     say: async (p) => {
-      typingRef.current.stop = false;
+      typingRef.current.stop = true;
+      const signal = { stop: false };
+      typingRef.current = signal;
+      const text = typeof p.text === 'string' ? p.text : '';
+      setTyped('');
       setSayQuestion(p.question);
-      await typeOnBoard(p.text, {
+      await typeOnBoard(text, {
         force: p.force,
         hands: () => hands,
         onChar: (ch) => setTyped((prev) => prev + ch),
@@ -89,7 +93,7 @@ export default function MesaPage() {
           setLit((prev) => ({ ...prev, [letter]: on }));
           if (on) sfx.letter();
         },
-        signal: typingRef.current,
+        signal,
       });
     },
     victim: (p) => { setVictim(p.name); sfx.reveal(); },
@@ -127,6 +131,10 @@ export default function MesaPage() {
   };
 
   const socketR = useSocket('/mesa', handlers, demo, { auth: { key: new URLSearchParams(window.location.search).get('key') ?? '' } });
+
+  useEffect(() => () => {
+    typingRef.current.stop = true;
+  }, []);
 
   useEffect(() => {
     if (qrRef.current) renderQr(qrRef.current, window.location.origin + '/');
@@ -377,10 +385,8 @@ export default function MesaPage() {
               Pregunta: «{sayQuestion}»
             </p>
           )}
-          <div id="wr" className="spirit-text" style={{ 
+          <div id="wr" className="spirit-text mesa-spirit-message" style={{
             fontSize: 'clamp(28px, 4.5vw, 48px)', 
-            letterSpacing: '0.08em', 
-            color: '#ffffff', 
             textShadow: `0 0 25px ${moodColor}` 
           }}>
             {typed || <span style={{ opacity: 0.35, fontSize: 24, fontStyle: 'normal' }}>— Las fuerzas del círculo guardan silencio —</span>}

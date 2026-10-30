@@ -9,6 +9,7 @@ import { transition } from '../domain/phases';
 import { startPact } from '../domain/pact';
 import { buildTestament } from '../domain/testament';
 import { startExorcism, stopExorcism } from '../domain/exorcism';
+import { distortQuestion } from '../domain/ghosts';
 import { setMood } from '../domain/mood';
 import { moderateText } from '../services/moderation';
 import { newId } from '../utils/ids';
@@ -141,7 +142,7 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
         if (u) {
           u.ghost = true;
           u.ghostSince = Date.now();
-          const distorted = '¿Hay alguien ahí?'.split(' ').map((w) => w.split('').reverse().join('')).join(' ') + '…';
+          const distorted = distortQuestion('¿Hay alguien ahí?');
           u.ghostQuestion = distorted;
           io.of('/mesa').emit(EV.MESA_GHOST, { userId: u.id, name: u.name, question: distorted });
           io.of('/play').to(u.socketId ?? '').emit(EV.YOU_GHOST, { on: true });

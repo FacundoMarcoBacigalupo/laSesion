@@ -10,6 +10,7 @@ import { validatePng } from '../domain/pact';
 import { isBanned } from '../services/bans';
 import { applyOffering } from '../domain/offerings';
 import { applyShake } from '../domain/exorcism';
+import { distortQuestion } from '../domain/ghosts';
 import { moderateText } from '../services/moderation';
 import { newId } from '../utils/ids';
 import { logEvent } from '../db/repos/events';
@@ -347,7 +348,7 @@ function ghostUser(io: any, store: SessionStore, scheduler: AiScheduler, u: any)
   u.ghostSince = Date.now();
   const lastQ = store.session.history.filter((q) => q.userId === u.id).slice(-1)[0]?.text ?? store.session.queue.find((q) => q.userId === u.id)?.text;
   const baseQ = lastQ ?? '¿Hay alguien ahí?';
-  const distorted = baseQ.split(' ').map((w: string) => w.split('').reverse().join('')).join(' ') + '…';
+  const distorted = distortQuestion(baseQ);
   u.ghostQuestion = distorted;
   io.of('/play').to(u.socketId ?? '').emit(EV.YOU_GHOST, { on: true });
   io.of('/mesa').emit(EV.MESA_GHOST, { userId: u.id, name: u.name, question: distorted });

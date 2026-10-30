@@ -71,6 +71,13 @@
 
 .mesa-status-mark { width: 8px; height: 8px; border-radius: 50%; background: var(--r); box-shadow: 0 0 14px var(--r); }
 .mesa-offering-icon { display: inline-flex; color: var(--r); vertical-align: middle; margin-left: 8px; }
+.mesa-spirit-message {
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  color: #eadada;
+  text-shadow: 0 0 10px rgba(130, 20, 34, .6), 0 0 28px rgba(120, 12, 24, .25);
+}
 
 .app::before {
   content: '';
