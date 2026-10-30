@@ -57,7 +57,7 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
     >
       {/* Cuerpo cónico del vaso invertido (ouija style) visto desde arriba */}
       <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[0.55, 0.4, 0.9, 48, 1, true]} />
+        <cylinderGeometry args={[0.55, 0.4, 1.35, 48, 1, true]} />
         <meshPhysicalMaterial
           color={holding ? '#ffb3c0' : '#ded8d2'}
           emissive={holding ? '#ff3b5c' : '#571018'}
@@ -75,7 +75,7 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       </mesh>
 
       {/* Base / fondo del vaso cerrado */}
-      <mesh position={[0, 0.45, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 0.675, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.55, 48]} />
         <meshPhysicalMaterial
           color={holding ? '#ffb3c0' : '#f4efea'}
@@ -91,7 +91,7 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       </mesh>
 
       {/* Borde sutil del fondo para mayor definición 3D */}
-      <mesh position={[0, 0.45, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 0.675, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.55, 0.025, 16, 48]} />
         <meshStandardMaterial
            color={holding ? '#ff3b5c' : '#c3b1aa'}
@@ -101,7 +101,7 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       </mesh>
 
       {/* Borde inferior de la boca del vaso que apoya sobre la mesa */}
-      <mesh position={[0, -0.45, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[0, -0.675, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.4, 0.02, 16, 48]} />
         <meshStandardMaterial
            color={holding ? '#ff3b5c' : '#6f4b50'}
@@ -111,7 +111,7 @@ function Cup({ holding, onStart, onStop }: { holding: boolean; onStart: () => vo
       </mesh>
 
       {/* Sombra de apoyo en la mesa */}
-      <mesh position={[0, -0.46, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, -0.69, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.65, 32]} />
         <meshBasicMaterial color="#000000" opacity={0.45} transparent={true} />
       </mesh>
