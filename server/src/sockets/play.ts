@@ -363,6 +363,7 @@ function ghostUser(io: any, store: SessionStore, scheduler: AiScheduler, u: any)
 function broadcastPlayers(io: any, store: SessionStore) {
   const users = [...store.session.users.values()].map((u) => ({ id: u.id, name: u.name, holding: u.holding, ghost: u.ghost }));
   io.of('/mesa').emit(EV.MESA_PLAYERS, { users });
+  io.of('/mesa').emit(EV.MESA_HANDS, { n: store.handsCount(), total: store.totalCount() });
   io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
 }
 

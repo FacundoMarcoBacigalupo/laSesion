@@ -318,7 +318,10 @@ export default function AdminPage() {
               {s.users?.map((u: any) => (
                 <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                   <td style={{ padding: '8px 10px', fontWeight: 600 }}>{u.name}</td>
-                  <td style={{ padding: '8px 10px', color: 'var(--mu)' }}>{u.device?.model ?? 'desconocido'}</td>
+                  <td style={{ padding: '8px 10px', color: 'var(--mu)' }}>
+                    <div>{u.device?.model ?? 'Dispositivo desconocido'}</div>
+                    <small>{[u.device?.platform, u.device?.screen].filter(Boolean).join(' · ') || 'Sistema desconocido'}</small>
+                  </td>
                   <td style={{ padding: '8px 10px' }}>{u.device?.battery ?? '—'}%</td>
                   <td style={{ padding: '8px 10px' }}>
                     {u.ghost ? '👻 Fantasma' : u.holding ? '✋ Sosteniendo' : u.hidden ? '👁️ Oculto' : 'En círculo'}
