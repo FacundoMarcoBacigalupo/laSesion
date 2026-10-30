@@ -40,7 +40,7 @@ export default function MesaPage() {
   const [ghosts, setGhosts] = useState<any[]>([]);
   const [want, setWant] = useState('ALIMENTO');
   const [points, setPoints] = useState(0);
-  const [bodies, setBodies] = useState<any[]>([]);
+  const bodiesRef = useRef<any[]>([]);
   const [exorcismActive, setExorcismActive] = useState(false);
   const [exorcismEnergy, setExorcismEnergy] = useState(0);
   const [pactSignatures, setPactSignatures] = useState<any[]>([]);
@@ -120,7 +120,7 @@ export default function MesaPage() {
     cauldron: (p) => {
       const r = 13;
       const body = { id: Math.random(), kind: p.kind, x: 50 + Math.random() * 200, y: 10, vx: Math.random() * 2 - 1, vy: 0, r, emoji: emojiFor(p.kind) };
-      setBodies((b) => [...b.slice(-(40 - 1)), body]);
+      bodiesRef.current = [...bodiesRef.current.slice(-(40 - 1)), body];
       sfx.splash();
     },
     offering: (p) => { setWant(emojiFor(p.want)); setPoints(p.points); },
@@ -216,34 +216,40 @@ export default function MesaPage() {
       ctx.quadraticCurveTo(canvas.width - 10, canvas.height + 10, canvas.width - 30, 45);
       ctx.fill();
 
-      // Bodies
-      setBodies((prev) => {
-        const next = prev.map((b) => {
-          let { x, y, vx, vy, r } = b;
-          vy += 0.35; x += vx; y += vy;
-          const lo = 42 + r, hi = canvas.width - 42 - r;
-          if (x < lo) { x = lo; vx *= -0.5; }
-          if (x > hi) { x = hi; vx *= -0.5; }
-          if (y > canvas.height - 18 - r) { y = canvas.height - 18 - r; vy *= -0.3; vx *= 0.95; }
-          return { ...b, x, y, vx, vy };
-        });
-
-        // Collisions
-        for (let i = 0; i < next.length; i++) {
-          for (let j = i + 1; j < next.length; j++) {
-            const a = next[i], b2 = next[j];
-            const dx = b2.x - a.x, dy = b2.y - a.y, d = Math.hypot(dx, dy) || 1, m = a.r + b2.r;
-            if (d < m) {
-              const k = (m - d) / 2;
-              a.x -= (dx / d) * k; a.y -= (dy / d) * k;
-              b2.x += (dx / d) * k; b2.y += (dy / d) * k;
-            }
-          }
+      // Move and draw the latest offerings without capturing stale React state.
+      const bodies = bodiesRef.current;
+      bodies.forEach((b) => {
+        b.vy += 0.35;
+        b.x += b.vx;
+        b.y += b.vy;
+        const lo = 42 + b.r, hi = canvas.width - 42 - b.r;
+        if (b.x < lo) { b.x = lo; b.vx *= -0.5; }
+        if (b.x > hi) { b.x = hi; b.vx *= -0.5; }
+        if (b.y > canvas.height - 18 - b.r) {
+          b.y = canvas.height - 18 - b.r;
+          b.vy *= -0.3;
+          b.vx *= 0.95;
         }
-        return next;
       });
 
-      // Draw emojis
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const a = bodies[i]!;
+          const b = bodies[j]!;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const minDistance = a.r + b.r;
+          if (distance < minDistance) {
+            const overlap = (minDistance - distance) / 2;
+            a.x -= (dx / distance) * overlap;
+            a.y -= (dy / distance) * overlap;
+            b.x += (dx / distance) * overlap;
+            b.y += (dy / distance) * overlap;
+          }
+        }
+      }
+
       bodies.forEach((b) => {
         ctx.font = '22px serif';
         ctx.textAlign = 'center';
@@ -263,7 +269,7 @@ export default function MesaPage() {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [bodies.length]);
+  }, []);
 
   const moodColor = mood === 'calmo' ? 'var(--mood-calmo)' : mood === 'furioso' ? 'var(--mood-furioso)' : mood === 'hambriento' ? 'var(--mood-hambriento)' : 'var(--mood-burlon)';
   const handsPct = total > 0 ? (hands / total) * 100 : 0;
