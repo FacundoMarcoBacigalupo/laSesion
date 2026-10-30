@@ -15,6 +15,7 @@ import CupScene from '../components/play/CupScene';
 import { Battery, Flame, HeartCrack, Pizza, Radio } from 'lucide-react';
 
 const demo = new URLSearchParams(window.location.search).get('demo') === '1';
+const debugHands = new URLSearchParams(window.location.search).get('debugHands') === '1';
 
 function drawContract(canvas: any, clauses: string[], name: string, png: string) {
   import('../lib/contractImage').then((m) => m.drawContract(canvas, clauses, name, png));
@@ -148,6 +149,11 @@ export default function PlayPage() {
     },
     hands: (p) => session.set({ hands: p.n, total: p.total }),
     players: (p) => setPlayers(p.users ?? p ?? []),
+    'debug:hands:state': (p) => {
+      if (!debugHands) return;
+      console.info(`[La Sesión] Manos en el vaso: ${p.hands}/${p.total}`);
+      console.table(p.holding);
+    },
     'you:chosen': (p) => {
       me.setMe({ chosen: true });
       setChosenWill(p.willText ?? '');
@@ -191,6 +197,16 @@ export default function PlayPage() {
   };
 
   const socketR = useSocket('/play', handlers, demo);
+  useEffect(() => {
+    if (!debugHands || demo) return;
+    const socket = socketR.current;
+    if (!socket) return;
+    const subscribe = () => socket.emit('debug:hands:subscribe');
+    socket.on('connect', subscribe);
+    if (socket.connected) subscribe();
+    return () => { socket.off('connect', subscribe); };
+  }, [socketR]);
+
   useEffect(() => {
     socketRef.current = socketR.current;
   }, [socketR]);

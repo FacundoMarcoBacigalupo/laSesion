@@ -67,12 +67,19 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       broadcastPlayers(io, store);
     });
 
+    socket.on('debug:hands:subscribe', () => {
+      socket.join('hands-debug');
+      socket.emit('debug:hands:state', handsDebugState(store));
+    });
+
     socket.on(EV.HOLD, (payload: any) => {
       if (!getBucket(socket.id, 'hold').tryConsume()) return;
       const v = validate(HoldSchema, payload);
       if (!v.ok) return;
       const uid = socket.data.userId;
       if (!uid) return;
+      const activeUser = store.session.users.get(uid);
+      if (!activeUser?.connected || activeUser.socketId !== socket.id) return;
       const { dropped } = applyHold(store, uid, (v.data as any).on);
       const u = store.session.users.get(uid);
       if (u) u.lastSeenAt = Date.now();
@@ -362,7 +369,22 @@ function broadcastPlayers(io: any, store: SessionStore) {
   const users = [...store.session.users.values()].map((u) => ({ id: u.id, name: u.name, holding: u.holding, ghost: u.ghost }));
   io.of('/mesa').emit(EV.MESA_PLAYERS, { users });
   io.of('/mesa').emit(EV.MESA_HANDS, { n: store.handsCount(), total: store.totalCount() });
+  io.of('/play').to('hands-debug').emit('debug:hands:state', handsDebugState(store));
   io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
+}
+
+function handsDebugState(store: SessionStore) {
+  const users = [...store.session.users.values()].filter((u) => u.connected);
+  return {
+    hands: store.handsCount(),
+    total: users.length,
+    holding: users.filter((u) => u.holding).map((u) => ({
+      name: u.name,
+      device: u.device?.model || u.device?.platform || 'desconocido',
+      platform: u.device?.platform ?? 'desconocida',
+      screen: u.device?.screen ?? 'desconocida',
+    })),
+  };
 }
 
 function sanitizeUserForClient(u: any) {
