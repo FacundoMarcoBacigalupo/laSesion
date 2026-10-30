@@ -206,7 +206,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
          emitRitual(io, store);
          io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
          ack?.({ ok: true, queued: true, question: res.question.text });
-         scheduler.enqueue('responder_pregunta', 1, { nombre: u.name, questionId: res.question.id }, true, res.question.text);
+         scheduler.enqueue('responder_pregunta', 1, { nombre: u.name, questionId: res.question.id, userId: uid }, true, res.question.text);
          return;
        }
       io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));

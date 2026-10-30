@@ -1,6 +1,7 @@
 import { EV } from '@sesion/shared';
 import type { SessionStore } from '../domain/session';
 import { ritualView } from '../domain/ritual';
+import { revealPendingSay } from './revealSay';
 
 export function registerMesa(io: any, store: SessionStore) {
   const nsp = io.of('/mesa');
@@ -22,12 +23,7 @@ export function registerMesa(io: any, store: SessionStore) {
     socket.emit(EV.MESA_MOOD, { mood: store.session.mood });
 
     socket.on(EV.MESA_SAY_DONE, (payload: any) => {
-      const id = payload?.id;
-      if (store.session.say?.id === id) {
-        store.session.sayDonePending = false;
-        store.session.say = null;
-        store.session.aiLastSayDoneAt = Date.now();
-      }
+      revealPendingSay(io, store, payload?.id);
     });
 
     socket.on('disconnect', () => {});

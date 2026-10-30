@@ -82,6 +82,19 @@ export function scoreRitualOffering(session: Session, userId: string): number {
   return next;
 }
 
+export function resetRitual(session: Session): void {
+  const roomSize = session.ritual.roomSize;
+  session.ritual = createRitual();
+  session.ritual.roomSize = roomSize;
+  session.say = null;
+  session.sayDonePending = false;
+  for (const user of session.users.values()) {
+    user.eliminated = false;
+    user.eliminationLine = undefined;
+    user.holding = false;
+  }
+}
+
 export function setRitualRoomSize(session: Session, size: number): boolean {
   if (session.ritual.stage !== 'hold') return false;
   const next = Math.round(size);
@@ -145,11 +158,11 @@ function tickHold(session: Session, at: number, rng: () => number): RitualEffect
   ritual.answers = 0;
   ritual.verdict = {
     names: eliminated.map((hit) => hit.user.name),
-    line: 'No eran puros. El círculo los escupe.',
+    line: 'Impuros. El círculo los entrega a la oscuridad.',
   };
   return {
     eliminated,
-    announcement: eliminated.length ? `${eliminated.length} ALMAS NO ERAN PURAS. EL CÍRCULO LAS ESCUPE.` : null,
+    announcement: eliminated.length ? `${eliminated.length} ALMAS FUERON RECHAZADAS. EL CÍRCULO LAS ENTREGA.` : null,
   };
 }
 
@@ -195,11 +208,11 @@ function enterCauldron(session: Session, at: number, eliminated: RitualHit[]): R
   ritual.offeringScores = {};
   ritual.cauldronEndsAt = at + RITUAL_CAULDRON_MS;
   ritual.verdict = eliminated.length
-    ? { names: eliminated.map((hit) => hit.user.name), line: 'No eran puras de maldad.' }
+    ? { names: eliminated.map((hit) => hit.user.name), line: 'Su maldad no alcanzó. El abismo los rechaza.' }
     : ritual.verdict;
   return {
     eliminated,
-    announcement: eliminated.length ? 'TRES NO ERAN PURAS DE MALDAD.' : null,
+    announcement: eliminated.length ? `${eliminated.length} ALMAS NO TENÍAN MALDAD. EL ABISMO LAS RECHAZA.` : null,
   };
 }
 
@@ -211,12 +224,12 @@ function enterPact(session: Session, winner: User | null, eliminated: RitualHit[
   if (eliminated.length) {
     ritual.verdict = {
       names: eliminated.map((hit) => hit.user.name),
-      line: 'El caldero se quedó con quien dio menos.',
+      line: 'El caldero se tragó a quien ofrendó menos.',
     };
   }
   const fallen = eliminated[0];
   const announcement = fallen
-    ? `${fallen.user.name.toUpperCase()} DIO MENOS. EL CALDERO SE LO QUEDA.`
+    ? `${fallen.user.name.toUpperCase()} OFRENDÓ MENOS. EL CALDERO SE LO TRAGA.`
     : null;
   return { eliminated, announcement };
 }

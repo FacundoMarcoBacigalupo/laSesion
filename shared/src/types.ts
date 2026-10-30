@@ -125,6 +125,7 @@ export type SayState = {
   question?: string;
   force: boolean;
   startedAt: number;
+  askerId?: string;
 } | null;
 
 export type Session = {

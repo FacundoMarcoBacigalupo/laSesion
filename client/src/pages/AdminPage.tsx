@@ -207,7 +207,7 @@ export default function AdminPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <h1 className="title" style={{ fontSize: 36, margin: 0 }}>Director de Sesión</h1>
-          <p style={{ color: 'var(--mu)', fontSize: 13, margin: '2px 0 0' }}>El rito avanza solo. Desde acá ves la sala y podés adelantar el corte.</p>
+          <p style={{ color: 'var(--mu)', fontSize: 13, margin: '2px 0 0' }}>El rito avanza solo. Desde acá ves la sala, adelantás el corte o lo volvés a empezar.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div
@@ -266,14 +266,19 @@ export default function AdminPage() {
       <div className="card card-highlight" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0, fontSize: 16 }}>El rito</h3>
-          <button
-            className="btn danger"
-            style={{ fontSize: 13, padding: '8px 14px' }}
-            disabled={s.ritual?.stage === 'pact' || (s.ritual?.stage !== 'questions' && s.ritual?.stage !== 'cauldron' && (s.ritual?.waiting ?? 1) > 0)}
-            onClick={() => cmd('dir:ritualCut')}
-          >
-            {s.ritual?.stage === 'questions' ? 'Cortar a los impuros' : s.ritual?.stage === 'cauldron' ? 'Cerrar el caldero' : s.ritual?.stage === 'pact' ? 'Pacto abierto' : 'Juzgar ahora'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn danger"
+              style={{ fontSize: 13, padding: '8px 14px' }}
+              disabled={s.ritual?.stage === 'pact' || (s.ritual?.stage !== 'questions' && s.ritual?.stage !== 'cauldron' && (s.ritual?.waiting ?? 1) > 0)}
+              onClick={() => cmd('dir:ritualCut')}
+            >
+              {s.ritual?.stage === 'questions' ? 'Cortar a los impuros' : s.ritual?.stage === 'cauldron' ? 'Cerrar el caldero' : s.ritual?.stage === 'pact' ? 'Pacto abierto' : 'Juzgar ahora'}
+            </button>
+            <button className="btn ghost" style={{ fontSize: 13, padding: '8px 14px' }} onClick={() => cmd('dir:ritualReset')}>
+              Reiniciar el rito
+            </button>
+          </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 14 }}>
           {RITUAL_STEPS.map((step) => {
@@ -464,7 +469,7 @@ export default function AdminPage() {
                   </td>
                   <td style={{ padding: '8px 10px' }}>{u.device?.battery ?? '—'}%</td>
                   <td style={{ padding: '8px 10px' }}>
-                    {u.eliminated ? `Fuera · ${u.eliminationLine ?? 'el círculo lo escupió'}` : u.ghost ? 'Fantasma' : u.holding ? 'Sosteniendo' : u.hidden ? 'Oculto' : 'En círculo'}
+                    {u.eliminated ? `Condenado · ${u.eliminationLine ?? 'el círculo lo entregó'}` : u.ghost ? 'Fantasma' : u.holding ? 'No suelta' : u.hidden ? 'Oculto' : 'En el círculo'}
                   </td>
                   <td style={{ padding: '8px 10px', textAlign: 'right' }}>
                     <button className="btn ghost" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => cmd('dir:kick', { userId: u.id })}>
@@ -536,21 +541,21 @@ function RitualDetail({ ritual, users, now }: { ritual: any; users: any[]; now: 
       {stage === 'hold' && (
         <p style={{ margin: 0 }}>
           {waiting > 0
-            ? `Estamos esperando ${waiting} ${waiting === 1 ? 'alma más' : 'almas más'}. El juicio arranca solo unos 20 segundos después de completar la sala.`
-            : `La sala está completa. ${holdLeft == null ? 'El círculo está por juzgar.' : `El juicio cae en ${holdLeft}s.`}`}
+            ? `Faltan ${waiting} ${waiting === 1 ? 'alma' : 'almas'}. El juicio cae solo unos 20 segundos después de cerrar la sala.`
+            : `La sala está cerrada. ${holdLeft == null ? 'El círculo está por juzgar.' : `El juicio cae en ${holdLeft}s.`}`}
         </p>
       )}
       {stage === 'questions' && (
-        <p style={{ margin: 0 }}>Quedan cinco. Sus mensajes llegan abajo y la IA responde. Después el círculo escupe a tres.</p>
+        <p style={{ margin: 0 }}>Las que quedaron hablan. La respuesta se escribe en la mesa antes de llegar al celular. Después el círculo escupe a las que no alcanzan.</p>
       )}
       {stage === 'cauldron' && (
         <p style={{ margin: 0 }}>
-          Quedan dos. {cauldronLeft == null ? 'El caldero está abierto.' : `Cierra en ${cauldronLeft}s.`} Quien ofrende menos cae.
+          Quedan dos. {cauldronLeft == null ? 'El caldero está abierto.' : `Se cierra en ${cauldronLeft}s.`} Quien ofrende menos se queda adentro.
         </p>
       )}
       {stage === 'pact' && (
         <p style={{ margin: 0, color: '#5dffa8', fontWeight: 700 }}>
-          {ritual?.pureName ?? 'Alguien'}, eres un puro de verdad
+          {ritual?.pureName ?? 'Alguien'}, el abismo lo reconoce
         </p>
       )}
       {ritual?.verdict?.names?.length > 0 && (
@@ -560,7 +565,7 @@ function RitualDetail({ ritual, users, now }: { ritual: any; users: any[]; now: 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {(ritual?.holders ?? []).map((soul: any) => (
             <span key={soul.id} style={{ padding: '4px 10px', borderRadius: 99, border: '1px solid var(--l)', color: soul.holding ? '#ffb3c0' : 'var(--mu)' }}>
-              {soul.name} · {soul.holding ? 'sostiene' : 'tiembla'}
+              {soul.name} · {soul.holding ? 'no suelta' : 'tiembla'}
             </span>
           ))}
         </div>

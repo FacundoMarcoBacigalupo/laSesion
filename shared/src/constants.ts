@@ -10,9 +10,9 @@ export const RITUAL_QUIET_MS = 8_000;
 export const RITUAL_QUESTIONS_MAX_MS = 90_000;
 export const RITUAL_CAULDRON_MS = 15_000;
 export const RITUAL_LINES = {
-  hold: 'No eres un puro para nosotros. Te mereces morir.',
-  questions: 'No eres puro de maldad. El círculo te escupe.',
-  cauldron: 'Tu ofrenda fue pobre. El caldero te sacrifica.',
+  hold: 'No eres puro. El círculo te niega y te entrega a la muerte.',
+  questions: 'Tu maldad es tibia. El abismo te escupe.',
+  cauldron: 'Tu ofrenda fue una burla. El caldero se bebe tu alma.',
 } as const;
 export const HOLD_RELEASE_GHOST_MS = 4000;
 export const HIDDEN_GHOST_MS = 3000;
