@@ -58,6 +58,7 @@ export const EV = {
   // /admin server->client
   ADMIN_STATE: 'admin:state',
   ADMIN_PROMPT: 'admin:prompt',
+  ADMIN_QUESTION: 'admin:question',
   ADMIN_LOG: 'admin:log',
   // /admin client->server
   DIR_ASK: 'dir:ask',

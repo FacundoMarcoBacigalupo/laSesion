@@ -13,7 +13,15 @@ import { now, sleep } from '../utils/time';
 import { moderateText } from '../services/moderation';
 
 type EmitSay = (text: string, question: string | undefined, mood: string, force: boolean, id: string) => void;
-type EmitAdminPrompt = (pedido: string, prompt: any, response: any, latencyMs: number, fallback: boolean) => void;
+type EmitAdminPrompt = (
+  pedido: string,
+  prompt: any,
+  response: any,
+  latencyMs: number,
+  fallback: boolean,
+  question?: string,
+  questionId?: string,
+) => void;
 
 interface Job { pedido: string; priority: number; extra?: any; force?: boolean; question?: string; }
 
@@ -34,6 +42,11 @@ export class AiScheduler {
     this.emitSay = emitSay;
     this.emitAdminPrompt = emitAdminPrompt;
     this.breaker = new CircuitBreaker(env.BREAKER_FAILS ?? 3, env.BREAKER_OPEN_MS ?? 60000);
+    this.store.session.ai.providerStatus = !env.AI_ENABLED
+      ? 'disabled'
+      : env.DEEPSEEK_API_KEY
+        ? 'untested'
+        : 'unconfigured';
   }
 
   start() {
@@ -95,6 +108,13 @@ export class AiScheduler {
     let fallback = useFallback;
     let ok = false;
     let latencyMs = 0;
+    s.ai.providerStatus = !env.AI_ENABLED
+      ? 'disabled'
+      : !env.DEEPSEEK_API_KEY
+        ? 'unconfigured'
+        : useFallback
+          ? 'fallback'
+          : 'checking';
 
     if (!useFallback && env.AI_ENABLED && env.DEEPSEEK_API_KEY) {
       try {
@@ -110,12 +130,15 @@ export class AiScheduler {
               const texto = mod.ok ? mod.text : (v.data.texto ?? v.data.text ?? '');
               result = { texto, humor: v.data.humor ?? s.mood, clausulas: v.data.clausulas };
               ok = true;
+              s.ai.providerStatus = 'connected';
               this.breaker.recordSuccess();
             } else {
               fallback = true;
+              s.ai.providerStatus = 'error';
             }
           } catch {
             fallback = true;
+            s.ai.providerStatus = 'error';
           }
         } else {
           // retry once on network error
@@ -132,15 +155,24 @@ export class AiScheduler {
                   const texto = mod.ok ? mod.text : (v.data.texto ?? v.data.text ?? '');
                   result = { texto, humor: v.data.humor ?? s.mood, clausulas: v.data.clausulas };
                   ok = true;
+                  s.ai.providerStatus = 'connected';
                   this.breaker.recordSuccess();
-                } else fallback = true;
-              } catch { fallback = true; }
+                } else {
+                  fallback = true;
+                  s.ai.providerStatus = 'error';
+                }
+              } catch {
+                fallback = true;
+                s.ai.providerStatus = 'error';
+              }
             } else {
               fallback = true;
+              s.ai.providerStatus = 'error';
               this.breaker.recordFail();
             }
           } else {
             fallback = true;
+            s.ai.providerStatus = 'error';
             // 4xx/429 no retry
             if (!/^4/.test(r.error ?? '')) this.breaker.recordFail();
             else this.breaker.recordFail();
@@ -148,11 +180,15 @@ export class AiScheduler {
         }
       } catch (e) {
         fallback = true;
+        s.ai.providerStatus = 'error';
         this.breaker.recordFail();
-        logger.warn({ err: e }, 'gemini call error');
+        logger.warn({ err: e }, 'DeepSeek call error');
       }
     } else {
       fallback = true;
+      if (s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM) {
+        s.ai.providerStatus = env.AI_ENABLED && env.DEEPSEEK_API_KEY ? 'fallback' : s.ai.providerStatus;
+      }
       logger.warn({ aiEnabled: env.AI_ENABLED, hasApiKey: !!env.DEEPSEEK_API_KEY, forced: s.ai.fallbackForced, breaker: this.breaker.isOpen(), rpm: this.callTimestamps.length }, 'AI fallback selected before API call');
     }
 
@@ -184,7 +220,7 @@ export class AiScheduler {
     } else s.ai.breakerOpen = this.breaker.isOpen();
 
     this.emitSay(text, job.question, s.mood, job.force ?? false, id);
-    this.emitAdminPrompt(pedido, prompt, result, latencyMs, fallback);
+    this.emitAdminPrompt(pedido, prompt, result, latencyMs, fallback, job.question, job.extra?.questionId);
 
     // log
     logAi(s.id, pedido, prompt, result, ok, latencyMs, fallback).catch(() => {});

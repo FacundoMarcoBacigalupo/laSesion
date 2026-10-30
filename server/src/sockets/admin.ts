@@ -75,9 +75,10 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
     socket.on(EV.DIR_READ_QUEUE, (_p: any, ack?: (r: any) => void) => {
       const q = readRandomQuestionSafe(store);
       if (!q) { ack?.({ ok: false, error: 'empty' }); return; }
+      io.of('/admin').emit(EV.ADMIN_QUESTION, { id: q.id, name: q.name, text: q.text, at: q.at });
       // Toda pregunta pública se responde mediante la IA; el fallback solo
       // actúa si el proveedor no está disponible.
-      scheduler.enqueue('responder_pregunta', 1, { nombre: q.name }, true, q.text);
+      scheduler.enqueue('responder_pregunta', 1, { nombre: q.name, questionId: q.id }, true, q.text);
       ack?.({ ok: true });
     });
 
@@ -375,7 +376,13 @@ function adminState(store: SessionStore) {
     pact: s.pact,
     offerings: { counts: s.offerings.counts, points: s.offerings.points, want: s.offerings.want, offendedKinds: [...s.offerings.offendedKinds] },
     exorcism: { active: s.exorcism.active, energy: s.exorcism.energy },
-    ai: { busy: s.ai.busy, lastAt: s.ai.lastAt, breakerOpen: s.ai.breakerOpen, fallbackForced: s.ai.fallbackForced },
+    ai: {
+      busy: s.ai.busy,
+      lastAt: s.ai.lastAt,
+      breakerOpen: s.ai.breakerOpen,
+      fallbackForced: s.ai.fallbackForced,
+      providerStatus: s.ai.providerStatus,
+    },
     hands: store.handsCount(),
     total: store.totalCount(),
   };

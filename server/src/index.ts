@@ -27,10 +27,19 @@ async function main(): Promise<http.Server> {
     if (!io) return;
     io.of('/mesa').emit('say', { id, text, question, mood, force });
     io.of('/play').emit('say', { id, text, question, mood, force });
-  }, (pedido, prompt, response, latencyMs, fallback) => {
+  }, (pedido, prompt, response, latencyMs, fallback, question, questionId) => {
     const io = (server as any).__io;
     if (!io) return;
-    io.of('/admin').emit('admin:prompt', { pedido, prompt, response, latencyMs, fallback });
+    io.of('/admin').emit('admin:prompt', {
+      pedido,
+      prompt,
+      response,
+      latencyMs,
+      fallback,
+      question,
+      questionId,
+      providerStatus: store.session.ai.providerStatus,
+    });
   });
 
   const io = createIo(server, store, scheduler);

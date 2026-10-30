@@ -185,7 +185,13 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
          store.session.history.push(res.question);
          upsertQuestion(store.session.id, res.question).catch(() => {});
          logEvent(store.session.id, uid, 'ask', { text: res.question.text }).catch(() => {});
-         scheduler.enqueue('responder_pregunta', 1, { nombre: u.name }, true, res.question.text);
+         io.of('/admin').emit(EV.ADMIN_QUESTION, {
+           id: res.question.id,
+           name: u.name,
+           text: res.question.text,
+           at: res.question.at,
+         });
+         scheduler.enqueue('responder_pregunta', 1, { nombre: u.name, questionId: res.question.id }, true, res.question.text);
        }
       io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
       ack?.({ ok: true, queued: true });

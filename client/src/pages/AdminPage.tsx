@@ -40,12 +40,26 @@ export default function AdminPage() {
 
   const handlers: Record<string, (p: any) => void> = {
     'admin:state': (p) => admin.setState(p),
-    'admin:prompt': (p) => admin.addPrompt(p),
+    'admin:prompt': (p) => admin.addAiReply(p),
+    'admin:question': (p) => admin.addQuestion(p),
     'admin:log': (p) => admin.addLog(p),
   };
   const socketR = useSocket('/admin', handlers, demo);
 
   const s = admin.state;
+  const aiStatus = s?.ai?.providerStatus === 'unconfigured'
+    ? { label: 'IA sin API key', color: '#ff6b6b' }
+    : s?.ai?.providerStatus === 'disabled'
+      ? { label: 'IA deshabilitada', color: '#ff6b6b' }
+      : s?.ai?.fallbackForced || s?.ai?.providerStatus === 'fallback'
+        ? { label: 'Usando respuestas de respaldo', color: '#ffb454' }
+        : s?.ai?.breakerOpen || s?.ai?.providerStatus === 'error'
+      ? { label: 'IA desconectada · usando fallback', color: '#ff6b6b' }
+      : s?.ai?.providerStatus === 'connected'
+        ? { label: 'IA conectada', color: '#5dffa8' }
+        : s?.ai?.providerStatus === 'checking'
+          ? { label: 'Conectando IA…', color: '#ffd166' }
+          : { label: 'IA sin verificar', color: '#ffd166' };
 
   function cmd(ev: string, payload?: any, ack?: (r: any) => void) {
     socketR.current?.emit?.(ev, payload ?? {}, (r: any) => {
@@ -105,6 +119,13 @@ export default function AdminPage() {
           <p style={{ color: 'var(--mu)', fontSize: 13, margin: '2px 0 0' }}>Panel de control en vivo para la presentación de 7 minutos</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <div
+            role="status"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 99, border: `1px solid ${aiStatus.color}55`, background: `${aiStatus.color}12`, color: aiStatus.color, fontSize: 12, fontWeight: 700 }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: aiStatus.color, boxShadow: `0 0 10px ${aiStatus.color}` }} />
+            {aiStatus.label}
+          </div>
           <a href="/mesa" target="_blank" rel="noreferrer" className="btn ghost" style={{ textDecoration: 'none', fontSize: 13, padding: '8px 14px' }}>
             🖥️ Abrir Proyector
           </a>
@@ -297,6 +318,27 @@ export default function AdminPage() {
               <p style={{ color: 'var(--mu)', fontSize: 12, margin: '8px 0' }}>No hay preguntas en espera.</p>
             )}
           </div>
+          <div style={{ marginTop: 16, borderTop: '1px solid var(--l)', paddingTop: 12 }}>
+            <b style={{ display: 'block', fontSize: 13, marginBottom: 8 }}>Mensajes y respuestas de la IA</b>
+            <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {admin.conversations?.map((item: any) => (
+                <div key={item.id} style={{ padding: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--l)', borderRadius: 8, fontSize: 13 }}>
+                  <div><b>{item.name} preguntó:</b> {item.text}</div>
+                  <div style={{ marginTop: 6, color: item.answer ? 'var(--tx)' : 'var(--mu)' }}>
+                    <b>Espíritu:</b> {item.answer ?? 'Esperando respuesta…'}
+                  </div>
+                  {item.answer && (
+                    <small style={{ display: 'block', marginTop: 5, color: item.fallback ? '#ffb454' : '#5dffa8' }}>
+                      {item.fallback ? 'Respuesta de respaldo' : 'Respuesta de IA'}{item.latencyMs != null ? ` · ${item.latencyMs} ms` : ''}
+                    </small>
+                  )}
+                </div>
+              ))}
+              {(!admin.conversations || admin.conversations.length === 0) && (
+                <p style={{ color: 'var(--mu)', fontSize: 12 }}>Todavía no llegaron mensajes de participantes.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -339,18 +381,18 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Collapsible Gemini Prompt & Advanced Debug */}
+      {/* Collapsible provider prompt and diagnostics */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 15 }}>🤖 Diagnóstico Gemini API</h3>
+            <h3 style={{ margin: 0, fontSize: 15 }}>🤖 Diagnóstico de IA · DeepSeek</h3>
             <span style={{ fontSize: 12, color: 'var(--mu)' }}>
-              {s.ai?.breakerOpen ? '⚠️ Breaker activado (fallbacks activos)' : 'IA operativa con Gemini'}
+              {s.ai?.breakerOpen ? '⚠️ Breaker activado (fallbacks activos)' : 'Estado del proveedor DeepSeek'}
             </span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => cmd('dir:aiToggle', { on: !s.ai?.fallbackForced })}>
-              {s.ai?.fallbackForced ? 'Reactivar Gemini' : 'Forzar Fallbacks'}
+              {s.ai?.fallbackForced ? 'Reactivar IA' : 'Forzar Fallbacks'}
             </button>
             <button className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => setShowPrompt(!showPrompt)}>
               {showPrompt ? 'Ocultar Prompt' : 'Ver Prompt'}
