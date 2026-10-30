@@ -18,6 +18,7 @@ import { upsertUser } from '../db/repos/users';
 import { upsertQuestion } from '../db/repos/questions';
 import { upsertPact } from '../db/repos/pacts';
 import { logOffering } from '../db/repos/offerings';
+import { saveAdminConversation } from '../db/repos/adminConversations';
 import type { SessionStore } from '../domain/session';
 import type { AiScheduler } from '../ai/scheduler';
 
@@ -184,6 +185,12 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
          store.session.queue = store.session.queue.filter((q) => q.id !== res.question!.id);
          store.session.history.push(res.question);
          upsertQuestion(store.session.id, res.question).catch(() => {});
+         saveAdminConversation(store.session.id, {
+           id: res.question.id,
+           name: u.name,
+           text: res.question.text,
+           at: res.question.at,
+         }).catch(() => {});
          logEvent(store.session.id, uid, 'ask', { text: res.question.text }).catch(() => {});
          io.of('/admin').emit(EV.ADMIN_QUESTION, {
            id: res.question.id,

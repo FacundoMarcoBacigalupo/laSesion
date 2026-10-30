@@ -27,4 +27,27 @@ describe('admin conversation feed', () => {
     }]);
     expect(useAdminStore.getState().state.ai.providerStatus).toBe('connected');
   });
+
+  it('merges persisted history without replacing a newer live answer', () => {
+    useAdminStore.getState().addQuestion({ id: 'q-2', name: 'Leo', text: '¿Quién está?', at: 2 });
+    useAdminStore.getState().addAiReply({
+      questionId: 'q-2',
+      question: '¿Quién está?',
+      questionName: 'Leo',
+      response: { texto: 'Alguien detrás de vos.' },
+      fallback: false,
+      latencyMs: 90,
+    });
+    useAdminStore.getState().mergeConversations([{
+      id: 'q-2',
+      name: 'Leo',
+      text: '¿Quién está?',
+      at: 2,
+      answer: null,
+      fallback: null,
+      latencyMs: null,
+    }]);
+
+    expect(useAdminStore.getState().conversations[0].answer).toBe('Alguien detrás de vos.');
+  });
 });

@@ -9,6 +9,7 @@ import { AiScheduler } from './ai/scheduler';
 import { restoreSession, startPersistence } from './services/persistence';
 import { newId } from './utils/ids';
 import { upsertSession } from './db/repos/sessions';
+import { saveAdminConversation } from './db/repos/adminConversations';
 
 async function main(): Promise<http.Server> {
   const dbAvailable = await initDb();
@@ -29,6 +30,18 @@ async function main(): Promise<http.Server> {
     io.of('/play').emit('say', { id, text, question, mood, force });
   }, (pedido, prompt, response, latencyMs, fallback, question, questionId) => {
     const io = (server as any).__io;
+    if (question && questionId) {
+      const answer = response?.texto ?? response?.text ?? 'La IA no devolvió texto.';
+      void saveAdminConversation(store.session.id, {
+        id: questionId,
+        name: String(prompt?.nombre ?? 'Participante'),
+        text: question,
+        answer,
+        fallback,
+        latencyMs,
+        at: Date.now(),
+      });
+    }
     if (!io) return;
     io.of('/admin').emit('admin:prompt', {
       pedido,
@@ -38,6 +51,7 @@ async function main(): Promise<http.Server> {
       fallback,
       question,
       questionId,
+      questionName: prompt?.nombre ?? 'Participante',
       providerStatus: store.session.ai.providerStatus,
     });
   });

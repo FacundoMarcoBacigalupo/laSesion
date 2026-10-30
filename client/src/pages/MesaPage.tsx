@@ -207,18 +207,121 @@ export default function MesaPage() {
     const ctx = canvas.getContext('2d')!;
     let raf = 0;
     const loop = () => {
+      const time = performance.now() / 1000;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Cauldron pot drawing
-      ctx.fillStyle = '#140c1e';
+
+      // Fire flickers behind the pot.
+      for (let i = 0; i < 7; i++) {
+        const x = 35 + i * 45;
+        const flicker = Math.sin(time * 8 + i * 2.1);
+        const height = 22 + (flicker + 1) * 13;
+        const flame = ctx.createLinearGradient(0, 125, 0, 125 - height);
+        flame.addColorStop(0, 'rgba(255,35,12,0)');
+        flame.addColorStop(0.25, 'rgba(255,54,10,0.65)');
+        flame.addColorStop(0.72, 'rgba(255,145,24,0.8)');
+        flame.addColorStop(1, 'rgba(255,225,115,0.05)');
+        ctx.fillStyle = flame;
+        ctx.beginPath();
+        ctx.moveTo(x - 13, 124);
+        ctx.bezierCurveTo(x - 19, 110, x - 5 + flicker * 3, 106 - height / 2, x, 125 - height);
+        ctx.bezierCurveTo(x + 4, 107 - height / 3, x + 17, 114, x + 13, 124);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Dark, charred wooden body.
+      const potPath = () => {
+        ctx.beginPath();
+        ctx.moveTo(30, 43);
+        ctx.quadraticCurveTo(30, 122, canvas.width / 2, canvas.height - 4);
+        ctx.quadraticCurveTo(canvas.width - 30, 122, canvas.width - 30, 43);
+        ctx.closePath();
+      };
+      const potFill = ctx.createLinearGradient(0, 42, 0, canvas.height);
+      potFill.addColorStop(0, '#160b0a');
+      potFill.addColorStop(0.42, '#080708');
+      potFill.addColorStop(1, '#210807');
       ctx.beginPath();
-      ctx.moveTo(30, 45);
-      ctx.quadraticCurveTo(10, canvas.height + 10, canvas.width / 2, canvas.height - 4);
-      ctx.quadraticCurveTo(canvas.width - 10, canvas.height + 10, canvas.width - 30, 45);
+      potPath();
+      ctx.fillStyle = potFill;
       ctx.fill();
+
+      ctx.save();
+      potPath();
+      ctx.clip();
+      for (let i = 0; i < 9; i++) {
+        const x = 44 + i * 31;
+        const stave = ctx.createLinearGradient(x - 10, 0, x + 10, 0);
+        stave.addColorStop(0, 'rgba(71,28,16,0.05)');
+        stave.addColorStop(0.5, 'rgba(112,47,24,0.46)');
+        stave.addColorStop(1, 'rgba(15,8,7,0.75)');
+        ctx.strokeStyle = stave;
+        ctx.lineWidth = 12;
+        ctx.beginPath();
+        ctx.moveTo(x, 42);
+        ctx.quadraticCurveTo(x - 8, 84, x + (170 - x) * 0.3, 128);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(210,105,55,0.16)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - 3, 52);
+        ctx.quadraticCurveTo(x - 7, 85, x + (170 - x) * 0.3 - 3, 118);
+        ctx.stroke();
+      }
+
+      // Blood-dark, rippling liquid inside the cauldron.
+      const liquid = ctx.createLinearGradient(0, 45, 0, 125);
+      liquid.addColorStop(0, 'rgba(123,5,20,0.82)');
+      liquid.addColorStop(0.45, 'rgba(59,2,12,0.88)');
+      liquid.addColorStop(1, 'rgba(16,3,5,0.96)');
+      ctx.fillStyle = liquid;
+      ctx.beginPath();
+      ctx.moveTo(39, 49 + Math.sin(time * 2) * 2);
+      ctx.quadraticCurveTo(170, 57 + Math.sin(time * 2.7) * 3, 301, 49 - Math.sin(time * 1.8) * 2);
+      ctx.lineTo(310, 126);
+      ctx.lineTo(30, 126);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Wooden rim, iron binding, and blood drips.
+      ctx.shadowColor = '#ff3018';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#30150e';
+      ctx.lineWidth = 12;
+      ctx.beginPath();
+      ctx.ellipse(canvas.width / 2, 45, 140, 13, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#75604a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(canvas.width / 2, 43, 140, 10, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#7d0715';
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 6; i++) {
+        const x = 65 + i * 43;
+        const drip = 7 + (Math.sin(time * 2 + i * 1.7) + 1) * 5;
+        ctx.beginPath();
+        ctx.moveTo(x, 47);
+        ctx.bezierCurveTo(x - 2, 51, x + 2, 52, x, 47 + drip);
+        ctx.stroke();
+      }
+
+      // Small skull ornaments carved into the wooden sides.
+      ctx.font = '17px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('💀', 55, 82);
+      ctx.fillText('💀', canvas.width - 55, 82);
 
       // Move and draw the latest offerings without capturing stale React state.
       const bodies = bodiesRef.current;
       bodies.forEach((b) => {
+        b.trail ??= [];
+        b.trail.push({ x: b.x, y: b.y });
+        if (b.trail.length > 7) b.trail.shift();
         b.vy += 0.35;
         b.x += b.vx;
         b.y += b.vy;
@@ -251,19 +354,37 @@ export default function MesaPage() {
       }
 
       bodies.forEach((b) => {
+        b.trail.forEach((point: { x: number; y: number }, index: number) => {
+          const progress = (index + 1) / b.trail.length;
+          ctx.globalAlpha = progress * 0.28;
+          ctx.fillStyle = index % 2 ? '#ff3b0a' : '#ffc247';
+          ctx.shadowColor = '#ff2a08';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, b.r * progress * 0.75, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        const glow = ctx.createRadialGradient(b.x, b.y, 1, b.x, b.y, b.r * 2.4);
+        glow.addColorStop(0, 'rgba(255,244,170,0.9)');
+        glow.addColorStop(0.35, 'rgba(255,104,15,0.62)');
+        glow.addColorStop(1, 'rgba(255,28,8,0)');
+        ctx.fillStyle = glow;
+        ctx.shadowColor = '#ff4812';
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r * 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
         ctx.font = '22px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#ff6018';
+        ctx.shadowBlur = 12;
         ctx.fillText(b.emoji, b.x, b.y);
+        ctx.shadowBlur = 0;
       });
-
-      // Cauldron rim
-      ctx.strokeStyle = '#8b6cff';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(30, 45);
-      ctx.lineTo(canvas.width - 30, 45);
-      ctx.stroke();
+      ctx.globalAlpha = 1;
 
       raf = requestAnimationFrame(loop);
     };
@@ -504,7 +625,7 @@ export default function MesaPage() {
             </p>
           </div>
           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-            <canvas ref={canvasRef} width={340} height={130} style={{ width: 340, height: 130, background: '#08040f', borderRadius: 12, border: '1px solid var(--l)' }} />
+            <canvas ref={canvasRef} width={340} height={130} style={{ width: 340, height: 130, background: '#08040f', borderRadius: 12, border: '1px solid rgba(120,35,24,0.65)' }} />
           </div>
         </div>
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>

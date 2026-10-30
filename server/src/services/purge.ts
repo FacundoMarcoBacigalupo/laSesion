@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 export async function purgeSessionData(sessionId: string): Promise<void> {
   const db = getDb();
-  const tables = ['events', 'questions', 'votes', 'pacts', 'offerings', 'ai_logs', 'snapshots', 'users'];
+  const tables = ['events', 'questions', 'admin_conversations', 'votes', 'pacts', 'offerings', 'ai_logs', 'snapshots', 'users'];
   for (const t of tables) {
     try { await db.execute({ sql: `DELETE FROM ${t} WHERE session_id=?`, args: [sessionId] }); } catch (e) { logger.warn({ err: e }, 'purge ' + t); }
   }

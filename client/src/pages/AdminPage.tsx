@@ -31,12 +31,49 @@ export default function AdminPage() {
   const [mockActive, setMockActive] = useState(false);
   const [sayText, setSayText] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
+  const [historyCursor, setHistoryCursor] = useState<{ at: number; id: string } | null>(null);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const historyLoadingRef = useRef(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api('/api/auth/me').then((r) => setAuthed(!!r?.admin));
   }, []);
+
+  async function loadConversationHistory(cursor: { at: number; id: string } | null = null) {
+    if (historyLoadingRef.current || demo) return;
+    historyLoadingRef.current = true;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const params = new URLSearchParams({ limit: '50' });
+      if (cursor) {
+        params.set('beforeAt', String(cursor.at));
+        params.set('beforeId', cursor.id);
+      }
+      const result = await api(`/api/admin/conversations?${params.toString()}`);
+      if (!result || !Array.isArray(result.items)) {
+        throw new Error(result?.error ?? 'No se pudo cargar el historial.');
+      }
+      admin.mergeConversations(result.items);
+      setHistoryHasMore(!!result.hasMore);
+      const oldest = result.items[result.items.length - 1];
+      setHistoryCursor(oldest ? { at: oldest.at, id: oldest.id } : null);
+    } catch (error) {
+      console.error('[admin] No se pudo cargar el historial de conversaciones', error);
+      setHistoryError('No se pudo cargar el historial. Revisá la conexión e intentá de nuevo.');
+    } finally {
+      historyLoadingRef.current = false;
+      setHistoryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (authed === true) void loadConversationHistory();
+  }, [authed]);
 
   const handlers: Record<string, (p: any) => void> = {
     'admin:state': (p) => admin.setState(p),
@@ -47,6 +84,26 @@ export default function AdminPage() {
   const socketR = useSocket('/admin', handlers, demo);
 
   const s = admin.state;
+  const conversationGroups = admin.conversations.reduce((groups: any[], item: any) => {
+    const date = new Date(item.at);
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    let group = groups[groups.length - 1];
+    if (!group || group.key !== key) {
+      group = {
+        key,
+        label: date.toLocaleDateString('es-AR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        items: [],
+      };
+      groups.push(group);
+    }
+    group.items.push(item);
+    return groups;
+  }, []);
   const aiStatus = s?.ai?.providerStatus === 'unconfigured'
     ? { label: 'IA sin API key', color: '#ff6b6b' }
     : s?.ai?.providerStatus === 'disabled'
@@ -319,25 +376,54 @@ export default function AdminPage() {
             )}
           </div>
           <div style={{ marginTop: 16, borderTop: '1px solid var(--l)', paddingTop: 12 }}>
-            <b style={{ display: 'block', fontSize: 13, marginBottom: 8 }}>Mensajes y respuestas de la IA</b>
-            <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {admin.conversations?.map((item: any) => (
-                <div key={item.id} style={{ padding: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--l)', borderRadius: 8, fontSize: 13 }}>
-                  <div><b>{item.name} preguntó:</b> {item.text}</div>
-                  <div style={{ marginTop: 6, color: item.answer ? 'var(--tx)' : 'var(--mu)' }}>
-                    <b>Espíritu:</b> {item.answer ?? 'Esperando respuesta…'}
+            <b style={{ display: 'block', fontSize: 13, marginBottom: 8 }}>
+              Historial de mensajes y respuestas ({admin.conversations.length})
+            </b>
+            <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {conversationGroups.map((group: any) => (
+                <section key={group.key}>
+                  <h4 style={{ position: 'sticky', top: 0, zIndex: 1, margin: '0 0 8px', padding: '7px 10px', background: '#100b18', borderBottom: '1px solid var(--l)', color: 'var(--a)', fontSize: 12, textTransform: 'capitalize' }}>
+                    {group.label}
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {group.items.map((item: any) => (
+                      <article key={item.id} style={{ padding: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--l)', borderRadius: 8, fontSize: 13 }}>
+                        <small style={{ color: 'var(--mu)' }}>
+                          {new Date(item.at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                        </small>
+                        <div style={{ marginTop: 3 }}><b>{item.name} preguntó:</b> {item.text}</div>
+                        <div style={{ marginTop: 6, color: item.answer ? 'var(--tx)' : 'var(--mu)' }}>
+                          <b>Espíritu:</b> {item.answer ?? 'Esperando respuesta…'}
+                        </div>
+                        {item.answer && (
+                          <small style={{ display: 'block', marginTop: 5, color: item.fallback ? '#ffb454' : '#5dffa8' }}>
+                            {item.fallback ? 'Respuesta de respaldo' : 'Respuesta de IA'}{item.latencyMs != null ? ` · ${item.latencyMs} ms` : ''}
+                          </small>
+                        )}
+                      </article>
+                    ))}
                   </div>
-                  {item.answer && (
-                    <small style={{ display: 'block', marginTop: 5, color: item.fallback ? '#ffb454' : '#5dffa8' }}>
-                      {item.fallback ? 'Respuesta de respaldo' : 'Respuesta de IA'}{item.latencyMs != null ? ` · ${item.latencyMs} ms` : ''}
-                    </small>
-                  )}
-                </div>
+                </section>
               ))}
-              {(!admin.conversations || admin.conversations.length === 0) && (
-                <p style={{ color: 'var(--mu)', fontSize: 12 }}>Todavía no llegaron mensajes de participantes.</p>
+              {admin.conversations.length === 0 && !historyLoading && (
+                <p style={{ color: 'var(--mu)', fontSize: 12 }}>
+                  {historyError || 'Todavía no llegaron mensajes de participantes.'}
+                </p>
               )}
             </div>
+            {historyError && admin.conversations.length > 0 && (
+              <p role="alert" style={{ color: '#ffb454', fontSize: 12 }}>{historyError}</p>
+            )}
+            {historyHasMore && (
+              <button
+                className="btn ghost"
+                style={{ width: '100%', marginTop: 10, fontSize: 12 }}
+                disabled={historyLoading}
+                onClick={() => void loadConversationHistory(historyCursor)}
+              >
+                {historyLoading ? 'Cargando historial…' : 'Cargar mensajes anteriores'}
+              </button>
+            )}
           </div>
         </div>
       </div>
