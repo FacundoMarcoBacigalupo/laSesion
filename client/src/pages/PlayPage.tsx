@@ -363,6 +363,7 @@ export default function PlayPage() {
     vibrate([36, 40, 36]);
     socketRef.current?.emit('ask', { text }, (res: any) => {
       if (res?.ok) {
+        pendingQuestionRef.current = res.question ?? text;
         setQuestion('');
         setQuestionSent(true);
         sfx.whisper();

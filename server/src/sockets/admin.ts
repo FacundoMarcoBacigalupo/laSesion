@@ -253,6 +253,49 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
       ack?.({ ok: true });
     });
 
+    socket.on(EV.DIR_RESET, (_payload: unknown, ack?: (r: any) => void) => {
+      if (mockInterval) clearInterval(mockInterval);
+      mockInterval = null;
+      mockActive = false;
+
+      const players = io.of('/play');
+      for (const playerSocket of [...players.sockets.values()]) {
+        playerSocket.emit(EV.KICK, { reason: 'session_reset' });
+        playerSocket.disconnect(true);
+      }
+
+      store.reset();
+      scheduler.reset();
+      const ritual = ritualView(store.session);
+      io.of('/mesa').emit(EV.MESA_STATE, {
+        phase: store.session.phase,
+        mood: store.session.mood,
+        tension: 0,
+        users: [],
+        hands: 0,
+        total: 0,
+        queueSize: 0,
+        votes: {},
+        victimId: null,
+        victimName: null,
+        willText: null,
+        pact: null,
+        offerings: { counts: store.session.offerings.counts, points: 0, want: store.session.offerings.want, offendedKinds: [] },
+        exorcism: { active: false, energy: 0 },
+        say: null,
+        ritual,
+      });
+      io.of('/mesa').emit(EV.MESA_PLAYERS, { users: [] });
+      io.of('/mesa').emit(EV.MESA_HANDS, { n: 0, total: 0 });
+      io.of('/mesa').emit(EV.MESA_TENSION, { value: 0 });
+      io.of('/mesa').emit(EV.MESA_QUEUE, { size: 0 });
+      io.of('/mesa').emit(EV.MESA_PHASE, { phase: store.session.phase });
+      io.of('/mesa').emit(EV.MESA_MOOD, { mood: store.session.mood });
+      io.of('/play').emit(EV.RITUAL, ritual);
+      broadcastPlayersAdmin(io, store);
+      ack?.({ ok: true });
+    });
+
     socket.on(EV.DIR_KICK, (payload: any, ack?: (r: any) => void) => {
       const uid = payload?.userId;
       const u = store.session.users.get(uid);

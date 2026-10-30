@@ -205,6 +205,9 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
          scheduler.enqueue('responder_pregunta', 1, { nombre: u.name, questionId: res.question.id, userId: uid }, true, res.question.text);
          noteRitualAsk(store.session, u.name, res.question.text);
          emitRitual(io, store);
+         io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
+         ack?.({ ok: true, queued: true, question: res.question.text });
+         return;
        }
       io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
       ack?.({ ok: true, queued: true });
