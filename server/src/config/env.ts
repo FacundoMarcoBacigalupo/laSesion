@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AI_DAY_CEILING, AI_RITUAL_CEILING, AI_RPM_CEILING, keyMark } from '../ai/budget';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,8 +24,9 @@ const EnvSchema = z.object({
   AI_ENABLED: z.coerce.boolean().default(true),
   AI_HEARTBEAT_MS: z.coerce.number().default(9000),
   AI_MIN_GAP_MS: z.coerce.number().default(2500),
-  AI_MAX_RPM: z.coerce.number().default(12),
+  AI_MAX_RPM: z.coerce.number().default(6),
   AI_MAX_CALLS: z.coerce.number().default(15),
+  AI_MAX_CALLS_DAY: z.coerce.number().default(40),
   AI_TIMEOUT_MS: z.coerce.number().default(7000),
   BREAKER_FAILS: z.coerce.number().default(3),
   BREAKER_OPEN_MS: z.coerce.number().default(60000),
@@ -67,5 +69,15 @@ function load(): Env {
 
 export const env = load();
 
-// Nunca imprime la clave: solo confirma si el proceso la recibió.
-console.info(`[ai] DeepSeek ${env.AI_ENABLED && env.DEEPSEEK_API_KEY.trim() ? 'configurado' : 'deshabilitado o sin API key'} (enabled=${env.AI_ENABLED}, key=${env.DEEPSEEK_API_KEY.trim() ? 'present' : 'missing'}, model=${env.DEEPSEEK_MODEL})`);
+const mark = keyMark(env.DEEPSEEK_API_KEY);
+console.info(JSON.stringify({
+  event: 'deepseek.boot',
+  enabled: env.AI_ENABLED,
+  keyPresent: mark.present,
+  keyLength: mark.length,
+  keySuffix: mark.suffix,
+  model: env.DEEPSEEK_MODEL,
+  rpm: Math.min(AI_RPM_CEILING, env.AI_MAX_RPM),
+  ritual: Math.min(AI_RITUAL_CEILING, env.AI_MAX_CALLS),
+  day: Math.min(AI_DAY_CEILING, env.AI_MAX_CALLS_DAY),
+}));

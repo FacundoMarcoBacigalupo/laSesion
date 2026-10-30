@@ -28,6 +28,7 @@ function parseCookie(header: string, name: string): string | undefined {
 }
 
 export const rateBuckets = new Map<string, TokenBucket>();
+const ipBuckets = new Map<string, TokenBucket>();
 
 export function getBucket(socketId: string, event: string): TokenBucket {
   const key = socketId + ':' + event;
@@ -47,6 +48,19 @@ export function getBucket(socketId: string, event: string): TokenBucket {
     rateBuckets.set(key, new TokenBucket(cap, refill));
   }
   return rateBuckets.get(key)!;
+}
+
+export function getIpBucket(ip: string, event: string): TokenBucket {
+  const key = ip + ':' + event;
+  if (!ipBuckets.has(key)) {
+    const limits: Record<string, [number, number]> = {
+      ask: [30, 0.05],
+      join: [15, 0.02],
+    };
+    const [cap, refill] = limits[event] ?? [10, 1];
+    ipBuckets.set(key, new TokenBucket(cap, refill));
+  }
+  return ipBuckets.get(key)!;
 }
 
 export function ipOfSocket(socket: any): string {

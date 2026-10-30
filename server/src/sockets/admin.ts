@@ -18,6 +18,7 @@ import { purgeSessionData } from '../services/purge';
 import { logEvent } from '../db/repos/events';
 import { banIp } from '../services/bans';
 import { env } from '../config/env';
+import { aiLimits, modelCallsToday } from '../ai/budget';
 
 let mockInterval: any = null;
 let mockActive = false;
@@ -455,7 +456,9 @@ function adminState(store: SessionStore) {
       providerStatus: s.ai.providerStatus,
       providerError: s.ai.providerError,
       calls: s.ai.calls ?? 0,
-      callBudget: env.AI_MAX_CALLS,
+      callBudget: aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY).ritual,
+      dayCalls: modelCallsToday(),
+      dayBudget: aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY).day,
     },
     hands: store.handsCount(),
     total: store.totalCount(),

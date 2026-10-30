@@ -11,7 +11,7 @@ import { logger } from '../utils/logger';
 import { logAi } from '../db/repos/aiLogs';
 import { now, sleep } from '../utils/time';
 import { moderateText } from '../services/moderation';
-import { isLocalPedido, spendsModel } from './budget';
+import { isLocalPedido, spendsModel, aiLimits, modelCallsToday, noteModelCall, keyMark } from './budget';
 
 type EmitSay = (text: string, question: string | undefined, mood: string, force: boolean, id: string) => void;
 type EmitAdminPrompt = (
@@ -114,8 +114,9 @@ export class AiScheduler {
     // RPM check
     const windowStart = Date.now() - 60000;
     this.callTimestamps = this.callTimestamps.filter((t) => t > windowStart);
-    const capped = !spendsModel(job.pedido, s.ai.calls ?? 0, env.AI_MAX_CALLS);
-    const useFallback = capped || s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM;
+    const limits = aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY);
+    const capped = !spendsModel(job.pedido, s.ai.calls ?? 0, limits.ritual, modelCallsToday(), limits.day);
+    const useFallback = capped || s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= limits.rpm;
     try {
       await this.execute(job, useFallback, generation);
     } catch (error) {
@@ -146,6 +147,8 @@ export class AiScheduler {
     let fallback = useFallback;
     let ok = false;
     let latencyMs = 0;
+    let usage: { prompt?: number; cacheHit?: number; cacheMiss?: number; output?: number } | undefined;
+    let status = '';
     const local = isLocalPedido(pedido);
     s.ai.providerStatus = local
       ? s.ai.providerStatus
@@ -159,10 +162,13 @@ export class AiScheduler {
 
     if (!useFallback && env.AI_ENABLED && env.DEEPSEEK_API_KEY) {
       s.ai.calls = (s.ai.calls ?? 0) + 1;
+      noteModelCall();
       this.callTimestamps.push(Date.now());
       try {
         const r = await callDeepSeek(env.DEEPSEEK_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
         latencyMs = r.latencyMs;
+        usage = r.usage;
+        status = r.error ?? (r.ok ? '200' : '');
         if (r.ok) {
           try {
             const parsed = JSON.parse(r.raw);
@@ -205,10 +211,14 @@ export class AiScheduler {
       }
     } else {
       fallback = true;
-      if ((s.ai.calls ?? 0) >= env.AI_MAX_CALLS && !isLocalPedido(pedido)) {
+      const limits = aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY);
+      if (modelCallsToday() >= limits.day && !isLocalPedido(pedido)) {
         s.ai.providerStatus = 'fallback';
-        s.ai.providerError = `Cupo del rito: ${env.AI_MAX_CALLS} respuestas. Reiniciá el rito para otras ${env.AI_MAX_CALLS}.`;
-      } else if (s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM) {
+        s.ai.providerError = `Cupo del día: ${limits.day} respuestas. Mañana vuelve a empezar.`;
+      } else if ((s.ai.calls ?? 0) >= limits.ritual && !isLocalPedido(pedido)) {
+        s.ai.providerStatus = 'fallback';
+        s.ai.providerError = `Cupo del rito: ${limits.ritual} respuestas. Reiniciá el rito para otras ${limits.ritual}.`;
+      } else if (s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= limits.rpm) {
         s.ai.providerStatus = env.AI_ENABLED && env.DEEPSEEK_API_KEY ? 'fallback' : s.ai.providerStatus;
       }
     }
@@ -246,6 +256,28 @@ export class AiScheduler {
     this.emitAdminPrompt(pedido, prompt, result, latencyMs, fallback, job.question, job.extra?.questionId);
 
     logAi(s.id, pedido, prompt, result, ok, latencyMs, fallback).catch(() => {});
+    if (!isLocalPedido(pedido)) {
+      const limits = aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY);
+      const mark = keyMark(env.DEEPSEEK_API_KEY);
+      const called = !useFallback && env.AI_ENABLED && mark.present;
+      logger.info({
+        event: 'deepseek',
+        pedido,
+        called,
+        ok,
+        fallback,
+        status: status || undefined,
+        reason: called ? (ok ? 'ok' : (s.ai.providerError ?? 'error')) : deepseekSkipReason(pedido, s, limits, this.breaker.isOpen(), this.callTimestamps.length),
+        latencyMs,
+        ritualCalls: s.ai.calls ?? 0,
+        dayCalls: modelCallsToday(),
+        keyPresent: mark.present,
+        keyLength: mark.length,
+        keySuffix: mark.suffix,
+        model: env.DEEPSEEK_MODEL,
+        usage,
+      }, 'deepseek');
+    }
   }
 
   private exorcismTick() {
@@ -256,6 +288,18 @@ export class AiScheduler {
   }
 
   get breakerInstance() { return this.breaker; }
+}
+
+function deepseekSkipReason(pedido: string, s: { ai: { fallbackForced: boolean; calls?: number } }, limits: { rpm: number; ritual: number; day: number }, breakerOpen: boolean, rpmCount: number): string {
+  if (!env.AI_ENABLED) return 'disabled';
+  if (!env.DEEPSEEK_API_KEY.trim()) return 'no-key';
+  if (modelCallsToday() >= limits.day) return 'day-cap';
+  if ((s.ai.calls ?? 0) >= limits.ritual) return 'ritual-cap';
+  if (s.ai.fallbackForced) return 'forced-fallback';
+  if (breakerOpen) return 'breaker';
+  if (rpmCount >= limits.rpm) return 'rpm';
+  if (isLocalPedido(pedido)) return 'local';
+  return 'fallback';
 }
 
 function describeProviderError(error?: string): string {

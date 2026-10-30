@@ -256,10 +256,10 @@ export default function AdminPage() {
           <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Almas en el rito</div>
         </div>
         <div className="card admin-kpi" style={{ padding: '14px 18px' }}>
-          <b style={{ fontSize: 22, color: (s.ai?.calls ?? 0) >= (s.ai?.callBudget ?? 15) ? 'var(--r)' : '#5dffa8' }}>
+          <b style={{ fontSize: 22, color: (s.ai?.calls ?? 0) >= (s.ai?.callBudget ?? 15) || (s.ai?.dayCalls ?? 0) >= (s.ai?.dayBudget ?? 40) ? 'var(--r)' : '#5dffa8' }}>
             {s.ai?.calls ?? 0}/{s.ai?.callBudget ?? 15}
           </b>
-          <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Respuestas de IA</div>
+          <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Rito · día {s.ai?.dayCalls ?? 0}/{s.ai?.dayBudget ?? 40}</div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { EV } from '@sesion/shared';
 import { JoinSchema, HoldSchema, VisibilitySchema, AskSchema, VoteSchema, StrokeSchema, SignDoneSchema, OfferSchema, ShakeSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
-import { getBucket, ipOfSocket, rateBuckets } from './middleware';
+import { getBucket, getIpBucket, ipOfSocket, rateBuckets } from './middleware';
 import { createUser, isIdleParticipant, removeParticipant, resumeUser } from '../domain/users';
 import { applyHold } from '../domain/hold';
 import { enqueueQuestion } from '../domain/questions';
@@ -23,6 +23,7 @@ import { saveAdminConversation } from '../db/repos/adminConversations';
 import type { SessionStore } from '../domain/session';
 import type { AiScheduler } from '../ai/scheduler';
 import { env } from '../config/env';
+import { aiLimits, modelCallsToday } from '../ai/budget';
 
 export function registerPlay(io: any, store: SessionStore, scheduler: AiScheduler) {
   const nsp = io.of('/play');
@@ -32,6 +33,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
 
     socket.on(EV.JOIN, (payload: any, ack?: (r: any) => void) => {
       if (!getBucket(socket.id, 'join').tryConsume()) { ack?.({ ok: false, error: 'rate' }); return; }
+      if (!getIpBucket(ipOfSocket(socket), 'join').tryConsume()) { ack?.({ ok: false, error: 'rate' }); return; }
       const v = validate(JoinSchema, payload);
       if (!v.ok) { ack?.({ ok: false, error: v.error }); return; }
       const data = v.data as any;
@@ -173,6 +175,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
 
     socket.on(EV.ASK, (payload: any, ack?: (r: any) => void) => {
       if (!getBucket(socket.id, 'ask').tryConsume()) { ack?.({ ok: false, error: 'rate' }); return; }
+      if (!getIpBucket(ipOfSocket(socket), 'ask').tryConsume()) { ack?.({ ok: false, error: 'rate' }); return; }
       const v = validate(AskSchema, payload);
       if (!v.ok) { ack?.({ ok: false, error: v.error }); return; }
       const uid = socket.data.userId;
@@ -530,7 +533,7 @@ function adminState(store: SessionStore) {
     pact: s.pact,
     offerings: { counts: s.offerings.counts, points: s.offerings.points, want: s.offerings.want, offendedKinds: [...s.offerings.offendedKinds] },
     exorcism: { active: s.exorcism.active, energy: s.exorcism.energy },
-    ai: { busy: s.ai.busy, lastAt: s.ai.lastAt, breakerOpen: s.ai.breakerOpen, fallbackForced: s.ai.fallbackForced, providerStatus: s.ai.providerStatus, calls: s.ai.calls ?? 0, callBudget: env.AI_MAX_CALLS },
+    ai: { busy: s.ai.busy, lastAt: s.ai.lastAt, breakerOpen: s.ai.breakerOpen, fallbackForced: s.ai.fallbackForced, providerStatus: s.ai.providerStatus, calls: s.ai.calls ?? 0, callBudget: aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY).ritual, dayCalls: modelCallsToday(), dayBudget: aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY).day },
     hands: store.handsCount(),
     total: store.totalCount(),
   };

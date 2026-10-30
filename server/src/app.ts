@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import { env } from './config/env';
 import { securityMiddleware } from './http/middleware/security';
+import { apiLimiter } from './http/middleware/rateLimit';
 import { errorHandler } from './http/middleware/error';
 import { healthRouter } from './http/routes/health';
 import { authRouter } from './http/routes/auth';
@@ -26,6 +27,7 @@ export function createApp(store: SessionStore) {
   app.use(cookieParser());
   app.use(express.json({ limit: '300kb' }));
 
+  app.use('/api', apiLimiter);
   app.use(healthRouter(store));
   app.use(authRouter());
   app.use(adminRouter(store));
