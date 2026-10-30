@@ -30,12 +30,15 @@ export function getDb(): Db {
 
 let placeholder = 0;
 
-export async function initDb(): Promise<void> {
+export async function initDb(): Promise<boolean> {
   const db = getDb();
   try {
     await db.execute('SELECT 1');
     logger.info('DB connected');
+    return true;
   } catch (e) {
+    if (env.NODE_ENV === 'production') throw e;
     logger.error({ err: e }, 'DB connection failed; running in-memory only');
+    return false;
   }
 }

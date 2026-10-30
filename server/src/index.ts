@@ -8,13 +8,15 @@ import { createIo } from './sockets';
 import { AiScheduler } from './ai/scheduler';
 import { restoreSession, startPersistence } from './services/persistence';
 import { newId } from './utils/ids';
+import { upsertSession } from './db/repos/sessions';
 
 async function main(): Promise<http.Server> {
-  await initDb();
+  const dbAvailable = await initDb();
   const store = new SessionStore(newId(10));
 
   // restore snapshot
-  try { await restoreSession(store); } catch {}
+  await restoreSession(store);
+  if (dbAvailable) await upsertSession(store.session.id, store.session.startedAt);
 
   const app = createApp(store);
   const server = http.createServer(app);

@@ -220,7 +220,7 @@ npm run dev
 | `AI_MIN_GAP_MS` | No | Gap mínimo entre llamadas IA (default 2500) |
 | `AI_MAX_RPM` | No | Límite global llamadas/min (ventana deslizante, default 12) |
 | `AI_TIMEOUT_MS` | No | Timeout fetch Gemini (default 7000) |
-| `DATABASE_URL` | **Sí** | `libsql://xxx.turso.io` o `file:./dev.db` local |
+| `DATABASE_URL` | **Sí** | Supabase: URI PostgreSQL `postgresql://...`; Turso: `libsql://...`; local: `file:./dev.db` |
 | `DATABASE_AUTH_TOKEN` | Si Turso | Token de autenticación Turso |
 | `RETENTION_HOURS` | No | Horas retención datos (default 24) |
 | `LOG_LEVEL` | No | `debug`\|`info`\|`warn`\|`error` (default info) |
@@ -242,8 +242,8 @@ turso db create la-sesion
 turso db show la-sesion --url --token
 
 # Copia URL y token a .env:
-# DATABASE_URL=libsql://la-sesion-xxx.turso.io
-# DATABASE_AUTH_TOKEN=eyJhbGciOiJIUzI1NiIs...
+# Copia DATABASE_URL y DATABASE_AUTH_TOKEN a .env:
+# DATABASE_AUTH_TOKEN=<token>
 
 # Migra
 npm run db:migrate
@@ -253,8 +253,9 @@ npm run db:migrate
 
 ```bash
 # En dashboard Supabase → Settings → Database → Connection string (URI)
-# DATABASE_URL=postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
-# (ajusta tipos en migrations si usas Postgres: SERIAL, TIMESTAMPTZ, etc.)
+# Guarda la URI completa como DATABASE_URL en el entorno privado del servidor.
+
+# No guardes credenciales reales en el repositorio.
 
 npm run db:migrate
 ```
@@ -274,7 +275,7 @@ snapshots     (session_id, state_json, at)  -- PK session_id
 -- Índices: events(session_id, at), questions(session_id, state), ai_logs(session_id, at)
 ```
 
-**Persistencia**: Escritura async no bloqueante. Si DB falla, la sesión sigue en memoria (log warning). Snapshot cada 15s y al cambiar fase. Al arrancar restaura último snapshot <3h.
+**Persistencia**: Escritura async no bloqueante. En desarrollo, si DB falla, la sesión sigue en memoria (log warning). En producción, el arranque falla explícitamente si no puede conectar a la base. Snapshot cada 15s y al cambiar fase. Al arrancar restaura último snapshot <3h.
 
 ---
 
@@ -310,14 +311,14 @@ Tu arquitectura actual configurada:
    - `PORT` = `3000`
    - `PUBLIC_URL` = `https://lasesion.mythf.site`
    - `TRUST_PROXY` = `1`
-   - `ADMIN_PASSWORD` = `admin` *(o tu contraseña preferida para el panel director)*
-   - `JWT_SECRET` = `clave-secreta-sesion-2026-halloween-token-seguro`
-   - `MESA_KEY` = `clave-del-proyector`
-   - `DEEPSEEK_API_KEY` = `sk-f1d493b3a71d4978ac11f107c0dad314`
+   - `ADMIN_PASSWORD` = <set-in-provider-dashboard>
+   - `JWT_SECRET` = <set-in-provider-dashboard>
+   - `MESA_KEY` = <set-in-provider-dashboard>
+   - `DEEPSEEK_API_KEY` = <set-in-provider-dashboard>
    - `DEEPSEEK_MODEL` = `deepseek-chat`
    - `DEEPSEEK_BASE_URL` = `https://api.deepseek.com`
    - `AI_ENABLED` = `true`
-   - `DATABASE_URL` = `postgresql://postgres.jvvcmwgsneuxtxdpbilq:iZSpluhsdGRTGgF7@aws-0-us-east-1.pooler.supabase.com:5432/postgres`
+   - `DATABASE_URL` = <set-in-provider-dashboard>
    - `RETENTION_HOURS` = `24`
    - `LOG_LEVEL` = `info`
 6. **Desplegar**:

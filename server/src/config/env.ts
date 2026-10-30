@@ -28,7 +28,7 @@ const EnvSchema = z.object({
   AI_TIMEOUT_MS: z.coerce.number().default(7000),
   BREAKER_FAILS: z.coerce.number().default(3),
   BREAKER_OPEN_MS: z.coerce.number().default(60000),
-  DATABASE_URL: z.string().default('file:./dev.db'),
+  DATABASE_URL: z.string().trim().min(1).default('file:./dev.db'),
   DATABASE_AUTH_TOKEN: z.string().optional().default(''),
   RETENTION_HOURS: z.coerce.number().default(24),
   LOG_LEVEL: z.string().default('info'),
@@ -45,6 +45,10 @@ function load(): Env {
   if (parsed.data.NODE_ENV === 'production') {
     if (!parsed.data.DEEPSEEK_API_KEY) console.warn('DEEPSEEK_API_KEY missing');
     if (parsed.data.ADMIN_PASSWORD === 'cambiame') console.warn('ADMIN_PASSWORD default in prod');
+    if (!/^postgres(?:ql)?:\/\//i.test(parsed.data.DATABASE_URL)) {
+      console.error('DATABASE_URL must be a PostgreSQL connection string in production');
+      process.exit(1);
+    }
   }
   return parsed.data;
 }
