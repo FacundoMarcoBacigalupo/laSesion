@@ -39,8 +39,6 @@ services:
         value: "7000"
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_AUTH_TOKEN
-        sync: false
       - key: RETENTION_HOURS
         value: "24"
       - key: LOG_LEVEL
