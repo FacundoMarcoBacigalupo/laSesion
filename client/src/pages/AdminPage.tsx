@@ -42,6 +42,8 @@ export default function AdminPage() {
   const admin = useAdminStore();
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [mockActive, setMockActive] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
   const [sayText, setSayText] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
   const [historyCursor, setHistoryCursor] = useState<{ at: number; id: string } | null>(null);
@@ -91,7 +93,10 @@ export default function AdminPage() {
   }
 
   const handlers: Record<string, (p: any) => void> = {
-    'admin:state': (p) => admin.setState(p),
+    'admin:state': (p) => {
+      admin.setState(p);
+      if (!p.total) setMockActive(false);
+    },
     'admin:prompt': (p) => admin.addAiReply(p),
     'admin:question': (p) => admin.addQuestion(p),
     'admin:log': (p) => admin.addLog(p),
@@ -178,11 +183,25 @@ export default function AdminPage() {
     );
   }
 
+  function resetFlow() {
+    if (resetting || !window.confirm('Se va a cerrar la conexión de todos y borrar el estado actual del rito. ¿Querés reiniciar la sesión?')) return;
+    setResetting(true);
+    setResetMessage('');
+    cmd('dir:reset', {}, (result: any) => {
+      setResetting(false);
+      setResetMessage(result?.ok ? 'Sesión reiniciada. Ya pueden volver a entrar.' : 'No se pudo reiniciar la sesión. Intentá de nuevo.');
+    });
+  }
+
   return (
     <div ref={containerRef} className="app" style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
       <BloodWebs />
       <div style={{ marginBottom: 12 }}>
         <button className="btn" onClick={() => cmd('dir:mock', {}, (r: any) => setMockActive(!!r?.active))}>{mockActive ? 'Vaciar almas de prueba' : 'Llenar la sala con 10 almas'}</button>
+        <button className="btn danger" style={{ marginLeft: 8 }} disabled={resetting} onClick={resetFlow}>
+          {resetting ? 'Reiniciando…' : 'Reiniciar flujo y desconectar a todos'}
+        </button>
+        {resetMessage && <span role="status" style={{ marginLeft: 10, color: 'var(--mu)', fontSize: 12 }}>{resetMessage}</span>}
       </div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

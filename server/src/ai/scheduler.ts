@@ -32,6 +32,7 @@ export class AiScheduler {
   private running = false;
   private lastCallAt = 0;
   private callTimestamps: number[] = [];
+  private generation = 0;
   private emitSay: EmitSay;
   private emitAdminPrompt: EmitAdminPrompt;
   private latidoTimer: NodeJS.Timeout | null = null;
@@ -65,6 +66,14 @@ export class AiScheduler {
     this.pump();
   }
 
+  reset() {
+    this.generation += 1;
+    this.queue = [];
+    this.callTimestamps = [];
+    this.lastCallAt = 0;
+    this.breaker.reset();
+  }
+
   forceFallback(on: boolean) {
     this.store.session.ai.fallbackForced = on;
   }
@@ -72,32 +81,62 @@ export class AiScheduler {
   private async pump() {
     if (this.running) return;
     this.running = true;
-    while (this.queue.length > 0) {
-      const job = this.queue.shift()!;
-      await this.processJob(job);
+    try {
+      while (this.queue.length > 0) {
+        const job = this.queue.shift()!;
+        try {
+          await this.processJob(job);
+        } catch (error) {
+          logger.error({ err: error, pedido: job.pedido }, 'AI queue job could not be processed');
+          this.store.session.ai.busy = false;
+          this.store.session.ai.providerStatus = 'error';
+        }
+      }
+    } finally {
+      this.running = false;
+      if (this.queue.length > 0) void this.pump();
     }
-    this.running = false;
   }
 
   private async processJob(job: Job) {
+    const generation = this.generation;
     const s = this.store.session;
     // wait if busy or say pending
     const startWait = Date.now();
-    while (s.ai.busy || s.sayDonePending === true) {
+    while (generation === this.generation && (s.ai.busy || s.sayDonePending === true)) {
       if (Date.now() - startWait > 6000) break;
       await sleep(100);
     }
+    if (generation !== this.generation) return;
     // min gap
     const gap = env.AI_MIN_GAP_MS - (Date.now() - this.lastCallAt);
     if (gap > 0) await sleep(gap);
+    if (generation !== this.generation) return;
     // RPM check
     const windowStart = Date.now() - 60000;
     this.callTimestamps = this.callTimestamps.filter((t) => t > windowStart);
     const useFallback = s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= env.AI_MAX_RPM;
-    await this.execute(job, useFallback);
+    try {
+      await this.execute(job, useFallback, generation);
+    } catch (error) {
+      if (generation !== this.generation) return;
+      logger.error({ err: error, pedido: job.pedido }, 'AI job failed unexpectedly');
+      s.ai.busy = false;
+      s.ai.providerStatus = 'error';
+      if (!job.question) return;
+
+      const fallback = fallbackFor(job.pedido, s, job.extra);
+      const id = newId(8);
+      s.say = { id, text: fallback.texto, question: job.question, force: job.force ?? false, startedAt: Date.now() };
+      s.sayDonePending = true;
+      s.ai.lastAt = Date.now();
+      this.emitSay(fallback.texto, job.question, fallback.humor, job.force ?? false, id);
+      this.emitAdminPrompt(job.pedido, { ...job.extra, pregunta: job.question }, fallback, 0, true, job.question, job.extra?.questionId);
+      setTimeout(() => { if (s.say?.id === id) { s.sayDonePending = false; s.say = null; } }, 6000);
+    }
   }
 
-  private async execute(job: Job, useFallback: boolean) {
+  private async execute(job: Job, useFallback: boolean, generation: number) {
     const s = this.store.session;
     const pedido = job.pedido;
     s.ai.busy = true;
@@ -178,6 +217,8 @@ export class AiScheduler {
             else this.breaker.recordFail();
           }
         }
+
+        if (generation !== this.generation) return;
       } catch (e) {
         fallback = true;
         s.ai.providerStatus = 'error';

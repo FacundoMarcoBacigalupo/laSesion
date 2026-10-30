@@ -80,6 +80,7 @@ export const EV = {
   DIR_AI_TOGGLE: 'dir:aiToggle',
   DIR_PURGE: 'dir:purge',
   DIR_MOCK: 'dir:mock',
+  DIR_RESET: 'dir:reset',
   DIR_BAN: 'dir:ban',
   DIR_KICK: 'dir:kick',
 } as const;

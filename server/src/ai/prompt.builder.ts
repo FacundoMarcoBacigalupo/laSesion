@@ -7,9 +7,9 @@ export function buildPrompt(session: Session, pedido: string, pregunta?: string,
     .slice(0, 12)
     .map((u) => ({
       n: u.name,
-      modelo: u.device.model,
-      bat: u.device.battery ?? undefined,
-      ciudad: u.device.tz.split('/').pop()?.replace(/_/g, ' '),
+      modelo: u.device?.model ?? undefined,
+      bat: u.device?.battery ?? undefined,
+      ciudad: u.device?.tz?.split('/').pop()?.replace(/_/g, ' '),
       sosteniendo: u.holding,
       pestañasPerdidas: u.hiddenCount,
     }));
