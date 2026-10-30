@@ -38,13 +38,34 @@ const offerings = [
   { kind: 'battery', label: 'Reserva', Icon: Battery },
 ];
 
+function secondsLeft(endsAt: number | null | undefined, now: number) {
+  if (!endsAt || now <= 0) return null;
+  return Math.max(0, Math.ceil((endsAt - now) / 1000));
+}
+
+function useClock(active: boolean) {
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [active]);
+  return now;
+}
+
 export default function PlayPage() {
   usePerformanceTier();
   const me = useMeStore();
   const session = useSessionStore();
   const socketRef = useRef<any>(null);
 
-  const [screen, setScreen] = useState<'hold' | 'ask' | 'vote' | 'chosen' | 'pact' | 'offerings' | 'exorcism' | 'pacto'>('hold');
+  const [screen, setScreen] = useState<'hold' | 'ask' | 'vote' | 'chosen' | 'pact' | 'offerings' | 'exorcism' | 'pacto' | 'dead'>('hold');
+  const [ritual, setRitual] = useState<any>(null);
+  const [deathLine, setDeathLine] = useState('No eres un puro para nosotros. Te mereces morir.');
+  const eliminatedRef = useRef(false);
+  const stageRef = useRef('hold');
+  const meIdRef = useRef(me.id);
+  useEffect(() => { meIdRef.current = me.id; }, [me.id]);
   const [chosenWill, setChosenWill] = useState('');
   const [pact, setPact] = useState<any>(null);
   const [question, setQuestion] = useState('');
@@ -59,13 +80,13 @@ export default function PlayPage() {
   const [exorcismActive, setExorcismActive] = useState(false);
   const [ghost, setGhost] = useState(false);
 
-  const [pactoName, setPactoName] = useState(() => localStorage.getItem('pactoName') || me.name || '');
+  const [pactoName, setPactoName] = useState(() => localStorage.getItem('pactoName') || '');
+  const pactDisplayName = pactoName || me.name || '';
   const [pactoSigned, setPactoSigned] = useState(() => localStorage.getItem('pactoSigned') === '1');
   const [pactoSignature, setPactoSignature] = useState(() => localStorage.getItem('pactoSignature') || '');
   const pactoCanvasRef = useRef<HTMLCanvasElement>(null);
   const pactoDrawingRef = useRef(false);
   const pactoLastRef = useRef<[number, number] | null>(null);
-  useEffect(() => { if (!pactoName && me.name) setPactoName(me.name); }, [me.name]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -101,16 +122,16 @@ export default function PlayPage() {
     const c = pactoCanvasRef.current!;
     const png = c.toDataURL('image/png');
     localStorage.setItem('pactoSigned', '1');
-    localStorage.setItem('pactoName', pactoName.trim() || 'Invitado');
+    localStorage.setItem('pactoName', pactDisplayName.trim() || 'Invitado');
     localStorage.setItem('pactoSignature', png);
     setPactoSignature(png);
     setPactoSigned(true);
-    socketRef.current?.emit('pact:standalone', { png, name: pactoName.trim() || 'Invitado' });
+    socketRef.current?.emit('pact:standalone', { png, name: pactDisplayName.trim() || 'Invitado' });
   }
   function pactoDownload() {
     const c = document.createElement('canvas');
     c.width = 600; c.height = 520;
-    drawContract(c, ['Acepto caminar en la oscuridad cuando el espíritu lo reclame.', 'Entrego mi nombre y mi firma al círculo.', 'No romperé el pacto sellado en sangre digital.', 'Acepto las penalidades que el espíritu imponga.'], pactoName.trim() || 'Invitado', pactoSignature || localStorage.getItem('pactoSignature') || '');
+    drawContract(c, ['Acepto caminar en la oscuridad cuando el espíritu lo reclame.', 'Entrego mi nombre y mi firma al círculo.', 'No romperé el pacto sellado en sangre digital.', 'Acepto las penalidades que el espíritu imponga.'], pactDisplayName.trim() || 'Invitado', pactoSignature || localStorage.getItem('pactoSignature') || '');
   }
   function pactoReset() {
     localStorage.removeItem('pactoSigned'); localStorage.removeItem('pactoName'); localStorage.removeItem('pactoSignature');
@@ -120,8 +141,34 @@ export default function PlayPage() {
   const isDrawingRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const exorcismOnRef = useRef(false);
+  const now = useClock(screen === 'offerings' || screen === 'hold');
 
   const shake = useShake(null);
+
+  function condemn(line?: string) {
+    eliminatedRef.current = true;
+    setDeathLine(line || 'No eres un puro para nosotros. Te mereces morir.');
+    setScreen('dead');
+  }
+
+  function applyRitual(p: any) {
+    setRitual(p);
+    const judged = p?.judged?.find((row: any) => row.id === meIdRef.current);
+    if (judged) {
+      condemn(judged.line);
+      return;
+    }
+    if (eliminatedRef.current) return;
+    if (p?.stage === 'pact' && stageRef.current !== 'pact') {
+      setPactoSigned(false);
+      setPactoSignature('');
+    }
+    stageRef.current = p?.stage ?? 'hold';
+    if (p?.stage === 'questions') setScreen('ask');
+    else if (p?.stage === 'cauldron') setScreen('offerings');
+    else if (p?.stage === 'pact') setScreen('pacto');
+    else setScreen('hold');
+  }
 
   const handlers: Record<string, (p: any) => void> = {
     sync: (p) => {
@@ -141,16 +188,16 @@ export default function PlayPage() {
       if (p.me) me.setMe(p.me);
       if (p.users) setPlayers(p.users);
       if (p.players) setPlayers(p.players);
-      if (p.phase === 'VOTING' && screen === 'hold') setScreen('vote');
-      if (p.phase === 'EXORCISM' && !screen.includes('exorcism')) setScreen('exorcism');
+      if (p.me?.eliminated) condemn(p.me.eliminationLine);
+      if (p.ritual) applyRitual(p.ritual);
     },
     phase: (p) => {
       session.set({ phase: p.phase });
-      if (p.phase === 'VOTING' && screen !== 'chosen' && screen !== 'pact') {
-        setScreen('vote');
-      } else if (p.phase === 'SESSION' && screen === 'vote') {
-        setScreen('hold');
-      }
+    },
+    ritual: (p) => applyRitual(p),
+    'you:judged': (p) => {
+      condemn(p?.line);
+      sfx.reveal();
     },
     hands: (p) => session.set({ hands: p.n, total: p.total }),
     players: (p) => setPlayers(p.users ?? p ?? []),
@@ -294,7 +341,6 @@ export default function PlayPage() {
     if (reduce) return;
     const ambient = gsap.timeline({ repeat: -1, yoyo: true });
     ambient.to('.screen-panel', { y: -3, rotation: 0.18, duration: 3.8, stagger: 0.18, ease: 'sine.inOut' });
-    gsap.to('.nav-tab.active', { boxShadow: '0 0 24px rgba(155, 25, 39, .42)', duration: 1.4, repeat: -1, yoyo: true, ease: 'sine.inOut' });
     return () => ambient.kill();
   }, { scope: containerRef, dependencies: [screen] });
 
@@ -391,7 +437,18 @@ export default function PlayPage() {
     });
   }
 
-  const showVoteTab = session.phase === 'VOTING' || players.length > 0;
+  const stageLabel = screen === 'dead'
+    ? 'Fuera'
+    : ritual?.stage === 'questions'
+      ? 'Preguntas'
+      : ritual?.stage === 'cauldron'
+        ? 'Caldero'
+        : ritual?.stage === 'pact'
+          ? 'Pacto'
+          : 'Mantener';
+  const cauldronLeft = secondsLeft(ritual?.cauldronEndsAt, now);
+  const myScore = ritual?.scores?.find((row: any) => row.id === me.id)?.score ?? 0;
+  const rivalScore = ritual?.scores?.find((row: any) => row.id !== me.id)?.score ?? 0;
 
   return (
     <div ref={containerRef} className="app" style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
@@ -404,7 +461,7 @@ export default function PlayPage() {
               {me.name || 'Iniciado'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--mu)' }}>
-              Fase: <span style={{ color: 'var(--a)', fontWeight: 600 }}>{session.phase}</span>
+              <span style={{ color: 'var(--a)', fontWeight: 600 }}>{stageLabel}</span>
             </div>
           </div>
         </div>
@@ -417,51 +474,13 @@ export default function PlayPage() {
         </div>
       </div>
 
-      {/* Navigation tabs */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, alignItems: 'center' }}>
-        <nav className="nav-tabs" style={{ width: '100%', justifyContent: 'center' }}>
-          <button 
-            id="tabHold"
-            className={`nav-tab ${screen === 'hold' ? 'active' : ''}`} 
-            onClick={() => setScreen('hold')}
-          >
-            Sostener
-          </button>
-          <button 
-            id="tabAsk"
-            className={`nav-tab ${screen === 'ask' ? 'active' : ''}`} 
-            onClick={() => setScreen('ask')}
-          >
-            Preguntar
-          </button>
-          {showVoteTab && (
-            <button 
-              id="tabVote"
-              className={`nav-tab ${screen === 'vote' ? 'active' : ''}`} 
-              onClick={() => setScreen('vote')}
-              style={session.phase === 'VOTING' ? { borderColor: 'rgba(255,59,92,0.4)', color: '#ffb3c0' } : {}}
-            >
-              Votar
-            </button>
-          )}
-          {session.want && (
-            <button 
-              id="tabOfferings"
-              className={`nav-tab ${screen === 'offerings' ? 'active' : ''}`} 
-              onClick={() => setScreen('offerings')}
-            >
-              Ofrendas
-            </button>
-          )}
-          <button
-            id="tabPacto"
-            className={`nav-tab ${screen === 'pacto' ? 'active' : ''}`}
-            onClick={() => setScreen('pacto')}
-          >
-            Pacto
-          </button>
-        </nav>
-      </div>
+      {screen === 'dead' && (
+        <div className="card screen-panel" style={{ textAlign: 'center', border: '1px solid rgba(255,59,92,0.55)', background: 'linear-gradient(180deg, #2a0610 0%, #07040c 100%)' }}>
+          <div style={{ letterSpacing: '0.22em', color: 'var(--r)', fontSize: 12, fontWeight: 800 }}>EL CÍRCULO HABLA</div>
+          <h2 style={{ fontSize: 26, lineHeight: 1.25, margin: '16px 0 8px', color: '#fff' }}>{deathLine}</h2>
+          <p style={{ color: 'var(--mu)', fontSize: 13, margin: 0 }}>Tu alma ya no tiene lugar en la mesa.</p>
+        </div>
+      )}
 
       {screen === 'pacto' && (
         <div className="card screen-panel" style={{ border: '1px solid rgba(255,59,92,0.3)' }}>
@@ -473,7 +492,7 @@ export default function PlayPage() {
           </div>
           {!pactoSigned && (
             <>
-              <input className="input-dark" value={pactoName} disabled style={{ width: '100%', marginBottom: 12, opacity: 0.8 }} />
+              <input className="input-dark" value={pactDisplayName} disabled style={{ width: '100%', marginBottom: 12, opacity: 0.8 }} />
               <canvas ref={pactoCanvasRef} width={320} height={100} onPointerDown={pactoStart} onPointerMove={pactoMove} onPointerUp={pactoStop} onPointerCancel={pactoStop} style={{ width: '100%', height: 100, background: '#050308', border: '1.5px dashed var(--r)', borderRadius: 10, touchAction: 'none', display: 'block', cursor: 'crosshair' }} />
               <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
                 <button className="btn ghost" style={{ flex: 1 }} onClick={pactoClear}>Borrar</button>
@@ -518,7 +537,7 @@ export default function PlayPage() {
             <h3 style={{ margin: 0, fontSize: 18 }}>Preguntale al espíritu</h3>
           </div>
           <p style={{ color: 'var(--mu)', fontSize: 13, marginBottom: 16 }}>
-            Las preguntas entran a la cola y el espíritu deletreará las respuestas en el tablero común.
+            Quedan cinco almas. Mandá lo que quieras: cae en la mesa y el espíritu responde.
           </p>
 
           <input 
@@ -673,7 +692,17 @@ export default function PlayPage() {
       {/* OFFERINGS SCREEN */}
       {screen === 'offerings' && (
         <div ref={panelRef} className="card screen-panel" style={{ textAlign: 'center' }}>
-          <h3 style={{ fontSize: 18, marginBottom: 6 }}>El caldero solicita</h3>
+          <div style={{ letterSpacing: '0.16em', color: 'var(--r)', fontSize: 12, fontWeight: 800 }}>
+            {cauldronLeft == null ? 'EL CALDERO' : `${cauldronLeft}s`}
+          </div>
+          <h3 style={{ fontSize: 18, margin: '8px 0 6px' }}>El caldero solicita</h3>
+          <p style={{ fontSize: 13, color: 'var(--mu)', margin: '0 0 8px' }}>
+            Quien ofrende menos en este lapso será sacrificado.
+          </p>
+          <p style={{ fontSize: 13, margin: '0 0 12px' }}>
+            Vos: <b style={{ color: myScore >= rivalScore ? '#5dffa8' : 'var(--r)' }}>{myScore}</b>
+            <span style={{ color: 'var(--mu)' }}> · la otra alma: {rivalScore}</span>
+          </p>
            <div className="offering-current" aria-label={`Ofrenda solicitada: ${want}`}>
              {offerings.find((offering) => offering.label.toUpperCase() === want)?.Icon && (() => {
                const Icon = offerings.find((offering) => offering.label.toUpperCase() === want)!.Icon;
@@ -756,7 +785,7 @@ export default function PlayPage() {
         </div>
       )}
 
-      {answerModal && (
+      {answerModal && screen !== 'dead' && (
         <div role="dialog" aria-modal="true" aria-live="assertive" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', padding: 20, background: 'rgba(0,0,0,.94)', backdropFilter: 'blur(10px)' }}>
           <div className="card" style={{ width: 'min(440px, 100%)', border: '1px solid var(--r)', boxShadow: '0 0 45px rgba(180,20,35,.55)', textAlign: 'center', animation: 'shake .18s infinite', position: 'relative', zIndex: 10001 }}>
             <div style={{ color: 'var(--r)', fontSize: 12, letterSpacing: 3, fontWeight: 800 }}>EL ESPÍRITU RESPONDE</div>

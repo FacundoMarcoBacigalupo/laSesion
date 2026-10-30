@@ -1,5 +1,6 @@
 import { EV } from '@sesion/shared';
-import { DirAskSchema, DirQueueDeleteSchema, DirPickVictimSchema, DirExorcismSchema, DirPhaseSchema, DirMoodSchema, DirSaySchema, DirAiToggleSchema, DirGhostSchema } from '@sesion/shared';
+import { armRitualNow, ritualView, setRitualRoomSize } from '../domain/ritual';
+import { DirAskSchema, DirQueueDeleteSchema, DirPickVictimSchema, DirExorcismSchema, DirPhaseSchema, DirRoomSizeSchema, DirMoodSchema, DirSaySchema, DirAiToggleSchema, DirGhostSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
 import { authHandshakeAdmin } from './middleware';
 import type { SessionStore } from '../domain/session';
@@ -226,6 +227,23 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
       ack?.({ ok: true });
     });
 
+    socket.on(EV.DIR_ROOM_SIZE, (payload: any, ack?: (r: any) => void) => {
+      const v = validate(DirRoomSizeSchema, payload);
+      if (!v.ok) { ack?.({ ok: false, error: v.error }); return; }
+      const ok = setRitualRoomSize(store.session, (v.data as { size: number }).size);
+      if (!ok) { ack?.({ ok: false, error: 'cerrado' }); return; }
+      const view = ritualView(store.session);
+      io.of('/play').emit(EV.RITUAL, view);
+      io.of('/mesa').emit(EV.RITUAL, view);
+      broadcastPlayersAdmin(io, store);
+      ack?.({ ok: true, size: view.roomSize });
+    });
+
+    socket.on(EV.DIR_RITUAL_CUT, (_payload: unknown, ack?: (r: any) => void) => {
+      const armed = armRitualNow(store.session);
+      ack?.(armed ? { ok: true } : { ok: false, error: 'faltan' });
+    });
+
     socket.on(EV.DIR_KICK, (payload: any, ack?: (r: any) => void) => {
       const uid = payload?.userId;
       const u = store.session.users.get(uid);
@@ -234,6 +252,8 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
         store.session.users.delete(uid);
         broadcastPlayersAdmin(io, store);
       }
+      ack?.({ ok: true });
+    });
 
     socket.on(EV.DIR_MOCK, (_p: any, ack?: (r: any) => void) => {
       if (mockActive) {
@@ -249,23 +269,20 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
         ack?.({ ok: true, active: false });
         return;
       }
-      const names = ['Ana','Bruno','Carla','Diego','Elena','Facundo','Gabriela','Hugo','Irene','Javier'];
+      const names = ['Ana','Bruno','Carla','Diego','Elena','Facundo','Gabriela','Hugo','Irene','Javier'].slice(0, store.session.ritual.roomSize);
       names.forEach((n, i) => {
         const id = 'mock-' + i;
-        store.session.users.set(id, { id, name: n, connected: true, holding: true, ghost: i >= 7, socketId: null } as any);
+        if (store.session.users.has(id)) return;
+        store.session.users.set(id, {
+          id,
+          name: n,
+          connected: true,
+          holding: true,
+          ghost: false,
+          eliminated: false,
+          socketId: null,
+        } as any);
       });
-      const signers = names.slice(0, 6);
-      signers.forEach((n) => {
-        io.of('/mesa').emit(EV.MESA_PACT_SIGNED, { name: n, time: Date.now(), png: '' });
-      });
-      let i = 0;
-      mockInterval = setInterval(() => {
-        const kinds = ['pizza','wifi','ex','battery'];
-        const kind = kinds[i % kinds.length];
-        io.of('/mesa').emit(EV.MESA_CAULDRON, { kind, byName: names[i % names.length] });
-        i++;
-        if (i > 20) { clearInterval(mockInterval); mockInterval = null; mockActive = false; }
-      }, 5000);
       mockActive = true;
       broadcastPlayersAdmin(io, store);
       io.of('/mesa').emit(EV.MESA_PLAYERS, { users: [...store.session.users.values()] });
@@ -282,8 +299,6 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
         if (ip) banIp(ip, 10);
         broadcastPlayersAdmin(io, store);
       }
-      ack?.({ ok: true });
-    });
       ack?.({ ok: true });
     });
   });
@@ -370,7 +385,10 @@ function adminState(store: SessionStore) {
       holding: u.holding, hidden: u.hidden, hiddenCount: u.hiddenCount, ghost: u.ghost,
       connected: u.connected, joinedAt: u.joinedAt, lastSeenAt: u.lastSeenAt,
       wasVictim: u.id === s.victimId,
+      eliminated: !!u.eliminated,
+      eliminationLine: u.eliminationLine ?? null,
     })),
+    ritual: ritualView(s),
     queue: s.queue.filter((q) => q.state === 'queued'),
     voteCounts: countVotes(s),
     pact: s.pact,

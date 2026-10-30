@@ -2,6 +2,18 @@ export const NAME_MAX = 24;
 export const QUESTION_MAX = 80;
 export const QUEUE_PER_USER = 3;
 export const MAX_PARTICIPANTS = 10;
+export const RITUAL_MIN_ROOM = 2;
+export const RITUAL_AFTER_QUESTIONS = 2;
+export const RITUAL_HOLD_MS = 20_000;
+export const RITUAL_QUESTIONS_MIN_MS = 20_000;
+export const RITUAL_QUIET_MS = 8_000;
+export const RITUAL_QUESTIONS_MAX_MS = 90_000;
+export const RITUAL_CAULDRON_MS = 15_000;
+export const RITUAL_LINES = {
+  hold: 'No eres un puro para nosotros. Te mereces morir.',
+  questions: 'No eres puro de maldad. El círculo te escupe.',
+  cauldron: 'Tu ofrenda fue pobre. El caldero te sacrifica.',
+} as const;
 export const HOLD_RELEASE_GHOST_MS = 4000;
 export const HIDDEN_GHOST_MS = 3000;
 export const DISCONNECT_GHOST_MS = 5000;

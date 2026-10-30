@@ -5,18 +5,31 @@ import { useAdminStore } from '../store/adminStore';
 import { useSocket } from '../hooks/useSocket';
 import { api } from '../lib/api';
 import BloodWebs from '../components/ui/BloodWebs';
+import { MAX_PARTICIPANTS, RITUAL_MIN_ROOM } from '@sesion/shared';
 
 const demo = new URLSearchParams(window.location.search).get('demo') === '1';
 
-const PHASES = [
-  { id: 'LOBBY', label: '1. Lobby (QR)', icon: '📱' },
-  { id: 'SESSION', label: '2. Sesión Ouija', icon: '🖐️' },
-  { id: 'VOTING', label: '3. Votación', icon: '🗳️' },
-  { id: 'VICTIM', label: '4. Elegido', icon: '🩸' },
-  { id: 'PACT', label: '5. Pacto', icon: '📜' },
-  { id: 'EXORCISM', label: '6. Exorcismo', icon: '⚡' },
-  { id: 'END', label: '7. Final', icon: '✨' },
+const RITUAL_STEPS = [
+  { id: 'hold', label: '1. Mantener' },
+  { id: 'questions', label: '2. Preguntas' },
+  { id: 'cauldron', label: '3. Caldero' },
+  { id: 'pact', label: '4. Pacto' },
 ];
+
+function secondsLeft(endsAt: number | null | undefined, now: number) {
+  if (!endsAt || now <= 0) return null;
+  return Math.max(0, Math.ceil((endsAt - now) / 1000));
+}
+
+function useClock(active: boolean) {
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [active]);
+  return now;
+}
 
 const MOODS = [
   { id: 'calmo', label: 'Calmo', color: 'var(--mood-calmo)' },
@@ -38,9 +51,15 @@ export default function AdminPage() {
   const historyLoadingRef = useRef(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const ritual = admin.state?.ritual;
+  const now = useClock(!!(ritual?.holdEndsAt || ritual?.cauldronEndsAt));
 
   useEffect(() => {
-    api('/api/auth/me').then((r) => setAuthed(!!r?.admin));
+    api('/api/auth/me').then((r) => {
+      const ok = !!r?.admin;
+      setAuthed(ok);
+      if (ok) void loadConversationHistory();
+    });
   }, []);
 
   async function loadConversationHistory(cursor: { at: number; id: string } | null = null) {
@@ -70,10 +89,6 @@ export default function AdminPage() {
       setHistoryLoading(false);
     }
   }
-
-  useEffect(() => {
-    if (authed === true) void loadConversationHistory();
-  }, [authed]);
 
   const handlers: Record<string, (p: any) => void> = {
     'admin:state': (p) => admin.setState(p),
@@ -167,13 +182,13 @@ export default function AdminPage() {
     <div ref={containerRef} className="app" style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
       <BloodWebs />
       <div style={{ marginBottom: 12 }}>
-        <button className="btn" onClick={() => cmd('dir:mock')}>Activar datos mockeados</button>
+        <button className="btn" onClick={() => cmd('dir:mock', {}, (r: any) => setMockActive(!!r?.active))}>{mockActive ? 'Vaciar almas de prueba' : 'Llenar la sala con 10 almas'}</button>
       </div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <h1 className="title" style={{ fontSize: 36, margin: 0 }}>Director de Sesión</h1>
-          <p style={{ color: 'var(--mu)', fontSize: 13, margin: '2px 0 0' }}>Panel de control en vivo para la presentación de 7 minutos</p>
+          <p style={{ color: 'var(--mu)', fontSize: 13, margin: '2px 0 0' }}>El rito avanza solo. Desde acá ves la sala y podés adelantar el corte.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div
@@ -210,16 +225,16 @@ export default function AdminPage() {
           <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Fantasmas</div>
         </div>
         <div className="card admin-kpi" style={{ padding: '14px 18px' }}>
-          <b style={{ fontSize: 20, color: 'var(--a)' }}>{s.phase}</b>
-          <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Fase activa</div>
+          <b style={{ fontSize: 20, color: 'var(--a)' }}>{RITUAL_STEPS.find((step) => step.id === s.ritual?.stage)?.label ?? 'Mantener'}</b>
+          <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Etapa del rito</div>
         </div>
         <div className="card admin-kpi" style={{ padding: '14px 18px' }}>
           <b style={{ fontSize: 20, color: '#ffd6a5' }}>{s.mood}</b>
           <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Humor</div>
         </div>
         <div className="card admin-kpi" style={{ padding: '14px 18px' }}>
-          <b style={{ fontSize: 22, color: 'var(--cyan)' }}>{s.exorcism?.energy ?? 0}%</b>
-          <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Exorcismo</div>
+          <b style={{ fontSize: 22, color: '#ffb3c0' }}>{s.ritual?.alive ?? 0}</b>
+          <div style={{ fontSize: 12, color: 'var(--mu)', marginTop: 2 }}>Almas en el rito</div>
         </div>
         <div className="card admin-kpi" style={{ padding: '14px 18px' }}>
           <b style={{ fontSize: 18, color: s.ai?.breakerOpen ? 'var(--r)' : '#5dffa8' }}>
@@ -229,65 +244,44 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* PHASE CONTROL PIPELINE (7-Min Presentation Flow) */}
       <div className="card card-highlight" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16 }}>⏱️ Flujo de la Presentación (Fases)</h3>
-          <span style={{ fontSize: 12, color: 'var(--mu)' }}>Avanzá secuencialmente según tu relato</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>El rito</h3>
+          <button
+            className="btn danger"
+            style={{ fontSize: 13, padding: '8px 14px' }}
+            disabled={s.ritual?.stage === 'pact' || (s.ritual?.stage !== 'questions' && s.ritual?.stage !== 'cauldron' && (s.ritual?.waiting ?? 1) > 0)}
+            onClick={() => cmd('dir:ritualCut')}
+          >
+            {s.ritual?.stage === 'questions' ? 'Cortar a los impuros' : s.ritual?.stage === 'cauldron' ? 'Cerrar el caldero' : s.ritual?.stage === 'pact' ? 'Pacto abierto' : 'Juzgar ahora'}
+          </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
-          {PHASES.map((p) => {
-            const isActive = s.phase === p.id;
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 14 }}>
+          {RITUAL_STEPS.map((step) => {
+            const active = (s.ritual?.stage ?? 'hold') === step.id;
             return (
-              <button
-                key={p.id}
-                className={`btn ${isActive ? '' : 'ghost'}`}
-                style={{
-                  padding: '10px 12px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  borderColor: isActive ? 'var(--a)' : undefined,
-                  boxShadow: isActive ? '0 0 20px var(--a-glow)' : 'none',
-                }}
-                onClick={() => cmd('dir:phase', { phase: p.id })}
-              >
-                <span>{p.icon}</span> {p.label}
-              </button>
+              <div key={step.id} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${active ? 'var(--r)' : 'var(--l)'}`, background: active ? 'rgba(120,16,28,0.35)' : 'transparent', fontWeight: 700, fontSize: 13 }}>
+                {step.label}
+              </div>
             );
           })}
         </div>
+        {(s.ritual?.stage ?? 'hold') === 'hold' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: 'var(--mu)' }}>Almas para empezar</span>
+            <button className="btn ghost" style={{ padding: '4px 12px' }} disabled={(s.ritual?.roomSize ?? MAX_PARTICIPANTS) <= RITUAL_MIN_ROOM} onClick={() => cmd('dir:roomSize', { size: (s.ritual?.roomSize ?? MAX_PARTICIPANTS) - 1 })}>−</button>
+            <b style={{ minWidth: 24, textAlign: 'center' }}>{s.ritual?.roomSize ?? MAX_PARTICIPANTS}</b>
+            <button className="btn ghost" style={{ padding: '4px 12px' }} disabled={(s.ritual?.roomSize ?? MAX_PARTICIPANTS) >= MAX_PARTICIPANTS} onClick={() => cmd('dir:roomSize', { size: (s.ritual?.roomSize ?? MAX_PARTICIPANTS) + 1 })}>+</button>
+          </div>
+        )}
+        <RitualDetail ritual={s.ritual} users={s.users ?? []} now={now} />
       </div>
 
       {/* DIRECTOR ACTIONS & SAY */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 16 }}>
         {/* Quick Narrative Actions */}
         <div className="card">
-          <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>⚡ Acciones Clave del Show</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <button className="btn ghost" onClick={() => cmd('dir:pickVictim')}>
-              🩸 Elegir víctima
-            </button>
-            <button className="btn ghost" onClick={() => cmd('dir:will')}>
-              📜 Enviar testamento
-            </button>
-            <button className="btn ghost" onClick={() => cmd('dir:pact')}>
-              ✍️ Abrir pacto
-            </button>
-            <button className="btn ghost" onClick={() => cmd('dir:wantOffering')}>
-              🔥 Pedir ofrenda
-            </button>
-            <button className="btn ghost" onClick={() => cmd('dir:ghost')}>
-              👻 Forzar fantasma
-            </button>
-            <button className="btn ghost" style={{ color: 'var(--cyan)' }} onClick={() => cmd('dir:exorcism', { action: 'start' })}>
-              ⚡ Exorcismo INICIAR
-            </button>
-            <button className="btn ghost" onClick={() => cmd('dir:exorcism', { action: 'stop' })}>
-              ⏹️ Exorcismo DETENER
-            </button>
-          </div>
-
-          {/* Quick ask */}
+          <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Dirección</h3>
           <div style={{ marginTop: 14 }}>
             <span style={{ fontSize: 12, color: 'var(--mu)', display: 'block', marginBottom: 6 }}>Preguntas Rápidas (IA):</span>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -299,7 +293,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Mood selection */}
           <div style={{ marginTop: 14 }}>
             <span style={{ fontSize: 12, color: 'var(--mu)', display: 'block', marginBottom: 6 }}>Humor de la Entidad:</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -452,8 +445,7 @@ export default function AdminPage() {
                   </td>
                   <td style={{ padding: '8px 10px' }}>{u.device?.battery ?? '—'}%</td>
                   <td style={{ padding: '8px 10px' }}>
-                    {u.ghost ? '👻 Fantasma' : u.holding ? '✋ Sosteniendo' : u.hidden ? '👁️ Oculto' : 'En círculo'}
-                    {u.wasVictim ? ' 🩸 Víctima' : ''}
+                    {u.eliminated ? `Fuera · ${u.eliminationLine ?? 'el círculo lo escupió'}` : u.ghost ? 'Fantasma' : u.holding ? 'Sosteniendo' : u.hidden ? 'Oculto' : 'En círculo'}
                   </td>
                   <td style={{ padding: '8px 10px', textAlign: 'right' }}>
                     <button className="btn ghost" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => cmd('dir:kick', { userId: u.id })}>
@@ -507,6 +499,67 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RitualDetail({ ritual, users, now }: { ritual: any; users: any[]; now: number }) {
+  const stage = ritual?.stage ?? 'hold';
+  const waiting = ritual?.waiting ?? 0;
+  const holdLeft = secondsLeft(ritual?.holdEndsAt, now);
+  const cauldronLeft = secondsLeft(ritual?.cauldronEndsAt, now);
+  const dead = users.filter((user) => user.eliminated);
+  const scores = ritual?.scores ?? [];
+  const maxScore = Math.max(1, ...scores.map((row: any) => row.score ?? 0));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
+      {stage === 'hold' && (
+        <p style={{ margin: 0 }}>
+          {waiting > 0
+            ? `Estamos esperando ${waiting} ${waiting === 1 ? 'alma más' : 'almas más'}. El juicio arranca solo unos 20 segundos después de completar la sala.`
+            : `La sala está completa. ${holdLeft == null ? 'El círculo está por juzgar.' : `El juicio cae en ${holdLeft}s.`}`}
+        </p>
+      )}
+      {stage === 'questions' && (
+        <p style={{ margin: 0 }}>Quedan cinco. Sus mensajes llegan abajo y la IA responde. Después el círculo escupe a tres.</p>
+      )}
+      {stage === 'cauldron' && (
+        <p style={{ margin: 0 }}>
+          Quedan dos. {cauldronLeft == null ? 'El caldero está abierto.' : `Cierra en ${cauldronLeft}s.`} Quien ofrende menos cae.
+        </p>
+      )}
+      {stage === 'pact' && (
+        <p style={{ margin: 0, color: '#5dffa8', fontWeight: 700 }}>
+          {ritual?.pureName ?? 'Alguien'}, eres un puro de verdad
+        </p>
+      )}
+      {ritual?.verdict?.names?.length > 0 && (
+        <p style={{ margin: 0, color: '#ffb3c0' }}>{ritual.verdict.names.join(', ')}. {ritual.verdict.line}</p>
+      )}
+      {stage === 'hold' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {(ritual?.holders ?? []).map((soul: any) => (
+            <span key={soul.id} style={{ padding: '4px 10px', borderRadius: 99, border: '1px solid var(--l)', color: soul.holding ? '#ffb3c0' : 'var(--mu)' }}>
+              {soul.name} · {soul.holding ? 'sostiene' : 'tiembla'}
+            </span>
+          ))}
+        </div>
+      )}
+      {stage === 'cauldron' && scores.map((row: any) => (
+        <div key={row.id}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <b>{row.name}</b>
+            <span>{row.score}</span>
+          </div>
+          <div className="meter" style={{ height: 8 }}>
+            <i style={{ width: `${(row.score / maxScore) * 100}%` }} />
+          </div>
+        </div>
+      ))}
+      {dead.length > 0 && (
+        <p style={{ margin: 0, color: 'var(--mu)' }}>Eliminados: {dead.map((user) => user.name).join(', ')}</p>
+      )}
     </div>
   );
 }

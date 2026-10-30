@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { OFFER_KINDS, PHASES, MOODS } from './constants';
+import { MAX_PARTICIPANTS, OFFER_KINDS, PHASES, MOODS, RITUAL_MIN_ROOM } from './constants';
 
 export const DeviceInfoSchema = z.object({
   model: z.string().optional(),
@@ -59,6 +59,10 @@ export const DirPickVictimSchema = z.object({ userId: z.string().optional() });
 export const DirExorcismSchema = z.object({ action: z.enum(['start', 'stop']) });
 
 export const DirPhaseSchema = z.object({ phase: z.enum(PHASES as unknown as [string, ...string[]]) });
+
+export const DirRoomSizeSchema = z.object({
+  size: z.number().int().min(RITUAL_MIN_ROOM).max(MAX_PARTICIPANTS),
+});
 
 export const DirMoodSchema = z.object({ mood: z.enum(MOODS as unknown as [string, ...string[]]) });
 

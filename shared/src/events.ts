@@ -28,6 +28,8 @@ export const EV = {
   EXORCISM: 'exorcism',
   SAY: 'say',
   KICK: 'kick',
+  RITUAL: 'ritual',
+  YOU_JUDGED: 'you:judged',
   // /mesa server->client
   MESA_STATE: 'state',
   MESA_PLAYERS: 'players',
@@ -71,6 +73,8 @@ export const EV = {
   DIR_WANT_OFFERING: 'dir:wantOffering',
   DIR_EXORCISM: 'dir:exorcism',
   DIR_PHASE: 'dir:phase',
+  DIR_RITUAL_CUT: 'dir:ritualCut',
+  DIR_ROOM_SIZE: 'dir:roomSize',
   DIR_MOOD: 'dir:mood',
   DIR_SAY: 'dir:say',
   DIR_AI_TOGGLE: 'dir:aiToggle',

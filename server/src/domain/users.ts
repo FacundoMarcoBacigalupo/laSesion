@@ -36,6 +36,7 @@ export function createUser(params: {
     hiddenCount: 0,
     ghost: false,
     consent: params.consent,
+    eliminated: false,
   };
 }
 

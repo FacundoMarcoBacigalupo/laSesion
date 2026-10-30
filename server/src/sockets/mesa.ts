@@ -1,5 +1,6 @@
 import { EV } from '@sesion/shared';
 import type { SessionStore } from '../domain/session';
+import { ritualView } from '../domain/ritual';
 
 export function registerMesa(io: any, store: SessionStore) {
   const nsp = io.of('/mesa');
@@ -56,6 +57,7 @@ function buildState(store: SessionStore): any {
     offerings: { counts: s.offerings.counts, points: s.offerings.points, want: s.offerings.want, offendedKinds: [...s.offerings.offendedKinds] },
     exorcism: { active: s.exorcism.active, energy: s.exorcism.energy },
     say: s.say,
+    ritual: ritualView(store.session),
   };
 }
 

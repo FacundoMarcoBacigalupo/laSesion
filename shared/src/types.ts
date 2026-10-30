@@ -36,6 +36,44 @@ export type User = {
   ghostQuestion?: string;
   consent: boolean;
   wasVictim?: boolean;
+  eliminated: boolean;
+  eliminationLine?: string;
+};
+
+export type RitualStage = 'hold' | 'questions' | 'cauldron' | 'pact';
+
+export type RitualWhisper = { name: string; text: string; at: number };
+
+export type RitualVerdict = { names: string[]; line: string };
+
+export type RitualState = {
+  stage: RitualStage;
+  roomSize: number;
+  holdEndsAt: number | null;
+  questionsStartedAt: number | null;
+  lastAnswerAt: number | null;
+  awaiting: number;
+  answers: number;
+  cauldronEndsAt: number | null;
+  offeringScores: Record<string, number>;
+  pureName: string | null;
+  whispers: RitualWhisper[];
+  verdict: RitualVerdict | null;
+};
+
+export type RitualView = {
+  stage: RitualStage;
+  roomSize: number;
+  waiting: number;
+  alive: number;
+  holdEndsAt: number | null;
+  cauldronEndsAt: number | null;
+  holders: { id: string; name: string; holding: boolean }[];
+  scores: { id: string; name: string; score: number }[];
+  pureName: string | null;
+  whispers: RitualWhisper[];
+  verdict: RitualVerdict | null;
+  judged: { id: string; line: string }[];
 };
 
 export type Question = {
@@ -111,6 +149,7 @@ export type Session = {
   recentDrops: number[];
   aiLastSayDoneAt: number;
   sayDonePending: boolean;
+  ritual: RitualState;
 };
 
 export type SessionSnapshot = {

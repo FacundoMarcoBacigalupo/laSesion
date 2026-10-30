@@ -4,6 +4,7 @@ import type {
 } from '@sesion/shared';
 import { now } from '../utils/time';
 import { OFFER_POINTS, OFFER_KINDS } from '@sesion/shared';
+import { createRitual } from './ritual';
 
 export class SessionStore {
   session: Session;
@@ -36,6 +37,7 @@ export class SessionStore {
       recentDrops: [],
       aiLastSayDoneAt: 0,
       sayDonePending: false,
+      ritual: createRitual(),
     };
   }
 

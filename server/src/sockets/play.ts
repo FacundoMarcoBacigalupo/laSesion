@@ -1,4 +1,4 @@
-import { EV, MAX_PARTICIPANTS } from '@sesion/shared';
+import { EV } from '@sesion/shared';
 import { JoinSchema, HoldSchema, VisibilitySchema, AskSchema, VoteSchema, StrokeSchema, SignDoneSchema, OfferSchema, ShakeSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
 import { getBucket, ipOfSocket, rateBuckets } from './middleware';
@@ -9,6 +9,7 @@ import { castVote } from '../domain/votes';
 import { validatePng } from '../domain/pact';
 import { isBanned } from '../services/bans';
 import { applyOffering } from '../domain/offerings';
+import { noteRitualAsk, ritualView, scoreRitualOffering, tickRitual } from '../domain/ritual';
 import { applyShake } from '../domain/exorcism';
 import { distortQuestion } from '../domain/ghosts';
 import { moderateText } from '../services/moderation';
@@ -51,7 +52,8 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
         socket.data.userId = user.id;
         socket.join(user.id);
       } else {
-        if (store.totalCount() >= MAX_PARTICIPANTS) { ack?.({ ok: false, error: 'session_full' }); return; }
+        if (store.session.ritual.stage !== 'hold') { ack?.({ ok: false, error: 'ritual_cerrado' }); return; }
+        if (store.totalCount() >= store.session.ritual.roomSize) { ack?.({ ok: false, error: 'session_full' }); return; }
         user = createUser({ name: data.name, consent: data.consent, device: data.device, ip, userAgent: ua, resumeToken: data.resumeToken });
         // keep token from createUser (new)
         store.session.users.set(user.id, user);
@@ -89,6 +91,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
         want: store.session.offerings.want,
         exorcism: { active: store.session.exorcism.active, energy: store.session.exorcism.energy },
         pact: store.session.pact ? { active: store.session.pact.active, id: store.session.pact.id, clauses: store.session.pact.clauses, penalties: store.session.pact.penalties } : null,
+        ritual: ritualView(store.session),
       });
     });
 
@@ -173,6 +176,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       if (!uid) { ack?.({ ok: false, error: 'no user' }); return; }
       const u = store.session.users.get(uid);
       if (!u) { ack?.({ ok: false, error: 'no user' }); return; }
+      if (u.eliminated || store.session.ritual.stage !== 'questions') { ack?.({ ok: false, error: 'cerrado' }); return; }
       if (store.session.phase === 'VOTING') { ack?.({ ok: false, error: 'voting' }); return; }
       const mod = moderateText((v.data as any).text);
       if (!mod.ok) { ack?.({ ok: false, error: mod.reason }); return; }
@@ -199,6 +203,8 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
            at: res.question.at,
          });
          scheduler.enqueue('responder_pregunta', 1, { nombre: u.name, questionId: res.question.id }, true, res.question.text);
+         noteRitualAsk(store.session, u.name, res.question.text);
+         emitRitual(io, store);
        }
       io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
       ack?.({ ok: true, queued: true });
@@ -281,11 +287,13 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       const uid = socket.data.userId;
       if (!uid) return;
       const u = store.session.users.get(uid);
-      if (!u) return;
+      if (!u || u.eliminated || store.session.ritual.stage !== 'cauldron') return;
       const kind = (v.data as any).kind as 'pizza' | 'wifi' | 'ex' | 'battery';
       const matched = kind === store.session.offerings.want;
       const repeat = (store.session.offerings.counts[kind] ?? 0) + 1 >= 3;
       const res = applyOffering(store.session, uid, kind, u.name);
+      if (matched) scoreRitualOffering(store.session, uid);
+      emitRitual(io, store);
       // emit cauldron
       io.of('/mesa').emit(EV.MESA_CAULDRON, { kind, byName: u.name });
       // emit offering state
@@ -351,6 +359,7 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       want: store.session.offerings.want,
       exorcism: { active: store.session.exorcism.active, energy: store.session.exorcism.energy },
       pact: store.session.pact ? { active: store.session.pact.active, id: store.session.pact.id, clauses: store.session.pact.clauses, penalties: store.session.pact.penalties } : null,
+      ritual: ritualView(store.session),
     };
     socket.emit(EV.SYNC, syncPayload);
   });
@@ -361,6 +370,8 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
     let participantsRemoved = false;
     for (const u of store.session.users.values()) {
       if (
+        store.session.ritual.stage === 'hold' &&
+        !u.eliminated &&
         isIdleParticipant(u, nowTs) &&
         removeParticipant(store.session, u.id, u.socketId ?? '')
       ) {
@@ -394,6 +405,25 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
     store.recomputeTension();
     io.of('/mesa').emit(EV.MESA_TENSION, { value: Math.round(store.session.tension) });
   }, 1000);
+
+  setInterval(() => {
+    const effect = tickRitual(store.session, Date.now());
+    if (!effect) return;
+    for (const hit of effect.eliminated) {
+      if (!hit.user.socketId) continue;
+      io.of('/play').to(hit.user.socketId).emit(EV.YOU_JUDGED, { line: hit.line });
+    }
+    if (effect.announcement) {
+      const payload = { id: newId(8), text: effect.announcement, question: undefined, mood: store.session.mood, force: true };
+      io.of('/mesa').emit(EV.MESA_SAY, payload);
+      io.of('/play').emit(EV.SAY, payload);
+    }
+    if (store.session.ritual.stage === 'cauldron') {
+      io.of('/play').emit(EV.OFFERING_WANT, { kind: store.session.offerings.want });
+    }
+    emitRitual(io, store);
+    broadcastPlayers(io, store);
+  }, 500);
 
   // say done ack from mesa handled in mesa.ts; but play doesn't need.
 
@@ -444,6 +474,7 @@ function broadcastPlayers(io: any, store: SessionStore) {
   io.of('/mesa').emit(EV.MESA_HANDS, { n: store.handsCount(), total: store.totalCount() });
   io.of('/play').to('hands-debug').emit('debug:hands:state', handsDebugState(store));
   io.of('/admin').emit(EV.ADMIN_STATE, adminState(store));
+  emitRitual(io, store);
 }
 
 function broadcastVotes(io: any, store: SessionStore) {
@@ -467,7 +498,13 @@ function handsDebugState(store: SessionStore) {
 }
 
 function sanitizeUserForClient(u: any) {
-  return { id: u.id, name: u.name, ghost: u.ghost, holding: u.holding };
+  return { id: u.id, name: u.name, ghost: u.ghost, holding: u.holding, eliminated: !!u.eliminated, eliminationLine: u.eliminationLine ?? null };
+}
+
+function emitRitual(io: any, store: SessionStore) {
+  const view = ritualView(store.session);
+  io.of('/play').emit(EV.RITUAL, view);
+  io.of('/mesa').emit(EV.RITUAL, view);
 }
 
 function adminState(store: SessionStore) {
@@ -481,14 +518,17 @@ function adminState(store: SessionStore) {
       holding: u.holding, hidden: u.hidden, hiddenCount: u.hiddenCount, ghost: u.ghost,
       connected: u.connected, joinedAt: u.joinedAt, lastSeenAt: u.lastSeenAt,
       wasVictim: u.id === s.victimId,
+      eliminated: !!u.eliminated,
+      eliminationLine: u.eliminationLine ?? null,
     })),
+    ritual: ritualView(s),
     queue: s.queue.filter((q) => q.state === 'queued'),
     votes: Object.fromEntries([...new Map([...s.votes.values()].map((t) => [t, 0]))]) ,
     voteCounts: countVotes(s),
     pact: s.pact,
     offerings: { counts: s.offerings.counts, points: s.offerings.points, want: s.offerings.want, offendedKinds: [...s.offerings.offendedKinds] },
     exorcism: { active: s.exorcism.active, energy: s.exorcism.energy },
-    ai: { busy: s.ai.busy, lastAt: s.ai.lastAt, breakerOpen: s.ai.breakerOpen, fallbackForced: s.ai.fallbackForced },
+    ai: { busy: s.ai.busy, lastAt: s.ai.lastAt, breakerOpen: s.ai.breakerOpen, fallbackForced: s.ai.fallbackForced, providerStatus: s.ai.providerStatus },
     hands: store.handsCount(),
     total: store.totalCount(),
   };

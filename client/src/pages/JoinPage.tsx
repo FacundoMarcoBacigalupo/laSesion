@@ -87,7 +87,7 @@ export default function JoinPage() {
           nav('/play' + window.location.search);
         } else {
           setLoading(false);
-          setErr(res?.error === 'session_full' ? 'El círculo está completo: máximo 10 participantes' : res?.error ?? 'Error al ingresar');
+          setErr(res?.error === 'session_full' ? 'El círculo ya está completo.' : res?.error === 'ritual_cerrado' ? 'El círculo ya juzgó. No entran más almas.' : res?.error ?? 'Error al ingresar');
           triggerErrorShake();
         }
       });

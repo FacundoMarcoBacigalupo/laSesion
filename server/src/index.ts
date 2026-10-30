@@ -10,6 +10,7 @@ import { restoreSession, startPersistence } from './services/persistence';
 import { newId } from './utils/ids';
 import { upsertSession } from './db/repos/sessions';
 import { saveAdminConversation } from './db/repos/adminConversations';
+import { noteRitualAnswer } from './domain/ritual';
 
 async function main(): Promise<http.Server> {
   const dbAvailable = await initDb();
@@ -23,6 +24,7 @@ async function main(): Promise<http.Server> {
   const server = http.createServer(app);
 
   const scheduler = new AiScheduler(store, (text, question, mood, force, id) => {
+    if (question) noteRitualAnswer(store.session, Date.now());
     // emit say to mesa and play
     const io = (server as any).__io;
     if (!io) return;
