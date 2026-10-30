@@ -3,6 +3,14 @@ import { newId, newToken } from '../utils/ids';
 import { now } from '../utils/time';
 import { maskIp } from '../services/ip';
 
+export const PARTICIPANT_IDLE_TIMEOUT_MS = 60_000;
+
+export function isIdleParticipant(user: User, at = Date.now()): boolean {
+  return user.connected &&
+    !user.holding &&
+    at - (user.releasedAt ?? user.joinedAt) >= PARTICIPANT_IDLE_TIMEOUT_MS;
+}
+
 export function createUser(params: {
   name: string;
   consent: boolean;

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 type MeState = {
   id: string | null;
@@ -12,8 +11,8 @@ type MeState = {
   clear: () => void;
 };
 
-export const useMeStore = create<MeState>()(persist((set) => ({
+export const useMeStore = create<MeState>()((set) => ({
   id: null, token: null, name: null, ghost: false, chosen: false, holding: false,
   setMe: (m) => set((s) => ({ ...s, ...m })),
   clear: () => set({ id: null, token: null, name: null, ghost: false, chosen: false, holding: false }),
-}), { name: 'me-store' }));
+}));

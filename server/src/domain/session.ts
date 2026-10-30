@@ -102,12 +102,12 @@ export class SessionStore {
     this.session.phase = s.phase;
     this.session.mood = s.mood;
     this.session.tension = s.tension;
-    this.session.users = new Map(s.users);
-    this.session.queue = s.queue ?? [];
+    this.session.users = new Map();
+    this.session.queue = [];
     this.session.history = s.history ?? [];
-    this.session.votes = new Map(s.votes);
-    this.session.victimId = s.victimId;
-    this.session.willText = s.willText;
+    this.session.votes = new Map();
+    this.session.victimId = null;
+    this.session.willText = null;
     this.session.pact = s.pact;
     if (s.offerings) {
       this.session.offerings = {

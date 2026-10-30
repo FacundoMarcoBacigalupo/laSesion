@@ -84,7 +84,6 @@ export default function JoinPage() {
       socket.emit('join', { name: name.trim(), consent: true, device }, (res: any) => {
         if (res?.ok) {
           setMe({ id: res.userId, token: res.token, name: name.trim(), ghost: false, chosen: false, holding: false });
-          localStorage.setItem('resumeToken', res.token);
           nav('/play' + window.location.search);
         } else {
           setLoading(false);

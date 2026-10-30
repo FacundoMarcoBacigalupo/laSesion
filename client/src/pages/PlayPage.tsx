@@ -10,7 +10,7 @@ import { useShake } from '../hooks/useShake';
 import { usePerformanceTier } from '../hooks/usePerformanceTier';
 import { vibrate } from '../lib/haptics';
 import { sfx, setHandsLevel } from '../lib/audio';
-import { MAX_PARTICIPANTS } from '@sesion/shared';
+import { EV, MAX_PARTICIPANTS } from '@sesion/shared';
 import CupScene from '../components/play/CupScene';
 import { Battery, Flame, HeartCrack, Pizza, Radio } from 'lucide-react';
 
@@ -133,6 +133,11 @@ export default function PlayPage() {
         exorcism: p.exorcism ?? session.exorcism,
         pact: p.pact ?? session.pact
       });
+      if (!p.me && !demo) {
+        me.clear();
+        window.location.replace('/');
+        return;
+      }
       if (p.me) me.setMe(p.me);
       if (p.users) setPlayers(p.users);
       if (p.players) setPlayers(p.players);
@@ -197,6 +202,16 @@ export default function PlayPage() {
   };
 
   const socketR = useSocket('/play', handlers, demo);
+  useEffect(() => {
+    if (demo) return;
+    const socket = socketR.current;
+    if (!socket) return;
+    const requestSync = () => socket.emit(EV.SESSION_SYNC);
+    socket.on('connect', requestSync);
+    if (socket.connected) requestSync();
+    return () => { socket.off('connect', requestSync); };
+  }, [demo, socketR]);
+
   useEffect(() => {
     if (!debugHands || demo) return;
     const socket = socketR.current;

@@ -7,7 +7,6 @@ export function useGhostOnHide(socket: any) {
     const leave = (redirect: boolean) => {
       if (leaving) return;
       leaving = true;
-      localStorage.removeItem('resumeToken');
       useMeStore.getState().clear();
       const current = socket?.current ?? socket;
       const goToLogin = () => window.location.replace('/');

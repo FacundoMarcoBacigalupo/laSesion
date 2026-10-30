@@ -2,6 +2,7 @@ export const EV = {
   // /play client->server
   JOIN: 'join',
   LEAVE: 'leave',
+  SESSION_SYNC: 'session:sync',
   HOLD: 'hold',
   VISIBILITY: 'visibility',
   ASK: 'ask',

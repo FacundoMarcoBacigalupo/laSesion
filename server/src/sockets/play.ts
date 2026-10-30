@@ -2,7 +2,7 @@ import { EV, MAX_PARTICIPANTS } from '@sesion/shared';
 import { JoinSchema, HoldSchema, VisibilitySchema, AskSchema, VoteSchema, StrokeSchema, SignDoneSchema, OfferSchema, ShakeSchema } from '@sesion/shared';
 import { validate } from '@sesion/shared';
 import { getBucket, ipOfSocket, rateBuckets } from './middleware';
-import { createUser, removeParticipant, resumeUser } from '../domain/users';
+import { createUser, isIdleParticipant, removeParticipant, resumeUser } from '../domain/users';
 import { applyHold } from '../domain/hold';
 import { enqueueQuestion } from '../domain/questions';
 import { castVote } from '../domain/votes';
@@ -70,6 +70,25 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
     socket.on('debug:hands:subscribe', () => {
       socket.join('hands-debug');
       socket.emit('debug:hands:state', handsDebugState(store));
+    });
+
+    socket.on(EV.SESSION_SYNC, () => {
+      const user = store.session.users.get(socket.data.userId);
+      if (!user?.connected || user.socketId !== socket.id) {
+        socket.emit(EV.SYNC, { me: null, counts: { players: store.totalCount(), hands: store.handsCount() } });
+        return;
+      }
+      socket.emit(EV.SYNC, {
+        phase: store.session.phase,
+        me: sanitizeUserForClient(user),
+        counts: { players: store.totalCount(), hands: store.handsCount() },
+        users: [...store.session.users.values()]
+          .filter((participant) => participant.connected)
+          .map(sanitizeUserForClient),
+        want: store.session.offerings.want,
+        exorcism: { active: store.session.exorcism.active, energy: store.session.exorcism.energy },
+        pact: store.session.pact ? { active: store.session.pact.active, id: store.session.pact.id, clauses: store.session.pact.clauses, penalties: store.session.pact.penalties } : null,
+      });
     });
 
     socket.on(EV.LEAVE, (_payload: unknown, ack?: (result: { ok: boolean }) => void) => {
@@ -326,7 +345,21 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
   // ghost check interval
   setInterval(() => {
     const nowTs = Date.now();
+    let participantsRemoved = false;
     for (const u of store.session.users.values()) {
+      if (
+        isIdleParticipant(u, nowTs) &&
+        removeParticipant(store.session, u.id, u.socketId ?? '')
+      ) {
+        const participantSocket = u.socketId ? nsp.sockets.get(u.socketId) : undefined;
+        if (participantSocket) {
+          participantSocket.data.userId = null;
+          participantSocket.emit(EV.KICK, { reason: 'idle' });
+          participantSocket.disconnect(true);
+        }
+        participantsRemoved = true;
+        continue;
+      }
       if (u.ghost) continue;
       if (!u.connected && u.lastSeenAt && nowTs - u.lastSeenAt > 5000) {
         ghostUser(io, store, scheduler, u);
@@ -337,6 +370,12 @@ export function registerPlay(io: any, store: SessionStore, scheduler: AiSchedule
       if (!u.holding && u.releasedAt && (store.session.phase === 'SESSION' || store.session.phase === 'VOTING' || store.session.phase === 'VICTIM') && nowTs - u.releasedAt > 4000) {
         ghostUser(io, store, scheduler, u);
       }
+    }
+    if (participantsRemoved) {
+      store.recomputeTension();
+      broadcastPlayers(io, store);
+      io.of('/mesa').emit(EV.MESA_QUEUE, { size: store.session.queue.filter((q) => q.state === 'queued').length });
+      broadcastVotes(io, store);
     }
     // recompute tension
     store.recomputeTension();
