@@ -452,6 +452,7 @@ function adminState(store: SessionStore) {
       breakerOpen: s.ai.breakerOpen,
       fallbackForced: s.ai.fallbackForced,
       providerStatus: s.ai.providerStatus,
+      providerError: s.ai.providerError,
     },
     hands: store.handsCount(),
     total: store.totalCount(),

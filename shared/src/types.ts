@@ -117,6 +117,7 @@ export type AiState = {
   breakerUntil: number;
   fallbackForced: boolean;
   providerStatus?: 'disabled' | 'unconfigured' | 'untested' | 'checking' | 'connected' | 'error' | 'fallback';
+  providerError?: string;
 };
 
 export type SayState = {

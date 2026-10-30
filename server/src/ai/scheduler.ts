@@ -169,14 +169,19 @@ export class AiScheduler {
               result = { texto, humor: v.data.humor ?? s.mood, clausulas: v.data.clausulas };
               ok = true;
               s.ai.providerStatus = 'connected';
+              s.ai.providerError = undefined;
               this.breaker.recordSuccess();
             } else {
               fallback = true;
               s.ai.providerStatus = 'error';
+              s.ai.providerError = describeValidationError(v.error.issues[0]);
+              logger.warn({ pedido, issues: v.error.issues }, 'DeepSeek response did not match the expected schema');
             }
-          } catch {
+          } catch (error) {
             fallback = true;
             s.ai.providerStatus = 'error';
+            s.ai.providerError = 'DeepSeek respondió con un JSON inválido.';
+            logger.warn({ err: error, pedido }, 'Could not parse DeepSeek response');
           }
         } else {
           // retry once on network error
@@ -194,23 +199,30 @@ export class AiScheduler {
                   result = { texto, humor: v.data.humor ?? s.mood, clausulas: v.data.clausulas };
                   ok = true;
                   s.ai.providerStatus = 'connected';
+                  s.ai.providerError = undefined;
                   this.breaker.recordSuccess();
                 } else {
                   fallback = true;
                   s.ai.providerStatus = 'error';
+                  s.ai.providerError = describeValidationError(v.error.issues[0]);
+                  logger.warn({ pedido, issues: v.error.issues }, 'DeepSeek retry response did not match the expected schema');
                 }
-              } catch {
+              } catch (error) {
                 fallback = true;
                 s.ai.providerStatus = 'error';
+                s.ai.providerError = 'DeepSeek respondió con un JSON inválido.';
+                logger.warn({ err: error, pedido }, 'Could not parse DeepSeek retry response');
               }
             } else {
               fallback = true;
               s.ai.providerStatus = 'error';
+              s.ai.providerError = describeProviderError(r2.error);
               this.breaker.recordFail();
             }
           } else {
             fallback = true;
             s.ai.providerStatus = 'error';
+            s.ai.providerError = describeProviderError(r.error);
             // 4xx/429 no retry
             if (!/^4/.test(r.error ?? '')) this.breaker.recordFail();
             else this.breaker.recordFail();
@@ -221,6 +233,7 @@ export class AiScheduler {
       } catch (e) {
         fallback = true;
         s.ai.providerStatus = 'error';
+        s.ai.providerError = 'Falló la comunicación con DeepSeek. Revisá los logs del servidor.';
         this.breaker.recordFail();
         logger.warn({ err: e }, 'DeepSeek call error');
       }
@@ -236,6 +249,9 @@ export class AiScheduler {
       const fb = fallbackFor(pedido, s, job.extra);
       result = { texto: fb.texto, humor: fb.humor, clausulas: fb.clausulas };
       fallback = true;
+      if (!useFallback && !s.ai.providerError) {
+        s.ai.providerError = 'DeepSeek no devolvió una respuesta utilizable.';
+      }
       if (!useFallback) this.breaker.recordFail();
     }
 
@@ -282,6 +298,29 @@ export class AiScheduler {
   }
 
   get breakerInstance() { return this.breaker; }
+}
+
+function describeProviderError(error?: string): string {
+  const status = error?.match(/^(\d{3})/)?.[1];
+  if (status) {
+    const explanations: Record<string, string> = {
+      '400': 'DeepSeek rechazó el formato de la solicitud (HTTP 400).',
+      '401': 'DeepSeek rechazó la autenticación (HTTP 401); verificá la clave configurada en Render.',
+      '402': 'DeepSeek indicó un problema de saldo o facturación (HTTP 402).',
+      '403': 'DeepSeek denegó el acceso al modelo o servicio (HTTP 403).',
+      '404': 'DeepSeek no encontró el modelo o endpoint (HTTP 404).',
+      '429': 'DeepSeek limitó las solicitudes (HTTP 429); esperá y volvé a probar.',
+    };
+    return explanations[status] ?? `DeepSeek devolvió HTTP ${status}. Revisá los logs del servidor.`;
+  }
+  if (/abort|timeout/i.test(error ?? '')) return 'La solicitud a DeepSeek agotó el tiempo de espera.';
+  return 'No se pudo conectar con DeepSeek. Revisá los logs del servidor.';
+}
+
+function describeValidationError(issue?: { path: PropertyKey[]; message: string }): string {
+  if (!issue) return 'DeepSeek respondió con un formato inesperado.';
+  const field = issue.path.map(String).join('.');
+  return `DeepSeek respondió con formato inválido${field ? ` en ${field}` : ''}: ${issue.message}`.slice(0, 180);
 }
 
 function decayExorcism(s: any) {

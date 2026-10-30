@@ -131,7 +131,7 @@ function createSession(id: string): Session {
       offendedKinds: new Set(),
     },
     exorcism: { active: false, energy: 0, shakers: new Map() },
-    ai: { busy: false, lastAt: 0, lastEvent: '', breakerOpen: false, failCount: 0, breakerUntil: 0, fallbackForced: false },
+    ai: { busy: false, lastAt: 0, lastEvent: '', breakerOpen: false, failCount: 0, breakerUntil: 0, fallbackForced: false, providerError: undefined },
     say: null,
     dropsLast30: [],
     recentDrops: [],

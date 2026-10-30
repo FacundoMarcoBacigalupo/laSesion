@@ -491,6 +491,9 @@ export default function AdminPage() {
             <span style={{ fontSize: 12, color: 'var(--mu)' }}>
               {s.ai?.breakerOpen ? '⚠️ Breaker activado (fallbacks activos)' : 'Estado del proveedor DeepSeek'}
             </span>
+            {s.ai?.providerError && (
+              <p role="status" style={{ color: '#ffb454', fontSize: 12, margin: '6px 0 0' }}>{s.ai.providerError}</p>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => cmd('dir:aiToggle', { on: !s.ai?.fallbackForced })}>
