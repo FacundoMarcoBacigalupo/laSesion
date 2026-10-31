@@ -1,11 +1,17 @@
+import { safeChatBase, safeChatModel } from './budget';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
-export type GeminiResult = { ok: boolean; text: string; latencyMs: number; fallback: boolean; data?: any };
-
 const HUMOR = ['calmo', 'furioso', 'hambriento', 'burlon'];
 
-// DeepSeek inventa claves (respuesta/tono). El schema pide texto/humor.
+export type ChatUsage = {
+  prompt?: number;
+  cacheHit?: number;
+  cacheMiss?: number;
+  output?: number;
+  reasoning?: number;
+};
+
 function coerceAiJson(content: string): string {
   if (!content) return '';
   try {
@@ -19,21 +25,22 @@ function coerceAiJson(content: string): string {
   }
 }
 
-export async function callDeepSeek(model: string, system: string, userPayload: any, _responseSchema: any, timeoutMs: number): Promise<{ ok: boolean; raw: string; latencyMs: number; error?: string; usage?: { prompt?: number; cacheHit?: number; cacheMiss?: number; output?: number } }> {
+export async function callChatGpt(model: string, system: string, userPayload: any, _responseSchema: any, timeoutMs: number): Promise<{ ok: boolean; raw: string; latencyMs: number; error?: string; usage?: ChatUsage }> {
   const t0 = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const url = `${env.DEEPSEEK_BASE_URL.replace(/\/$/, '')}/chat/completions`;
-  // deepseek-chat / deepseek-reasoner se dieron de baja. Sin este apagado, el modelo piensa y cobra el razonamiento como salida.
-  const resolved = model === 'deepseek-chat' || model === 'deepseek-reasoner' ? 'deepseek-flash' : model;
-  const key = env.DEEPSEEK_API_KEY.trim();
+  const resolved = safeChatModel(model);
+  const url = `${safeChatBase(env.OPENAI_BASE_URL)}/chat/completions`;
+  const key = env.OPENAI_API_KEY.trim();
   const redact = (text: string) => (key ? text.split(key).join('[redacted]') : text);
   const body = {
     model: resolved,
-    messages: [{ role: 'system', content: system }, { role: 'user', content: JSON.stringify(userPayload) + '\n{"texto":"máx 160","humor":"calmo|furioso|hambriento|burlon"}' }],
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: `${JSON.stringify(userPayload)}\nRespondé solo JSON: {"texto":"máx 160","humor":"calmo|furioso|hambriento|burlon"}` },
+    ],
     response_format: { type: 'json_object' },
-    thinking: { type: 'disabled' },
-    max_tokens: 220,
+    max_completion_tokens: 220,
     temperature: 0.7,
     stream: false,
   };
@@ -48,27 +55,30 @@ export async function callDeepSeek(model: string, system: string, userPayload: a
     const latencyMs = Date.now() - t0;
     if (!res.ok) {
       await res.text();
-      logger.error({ status: res.status, model: resolved }, 'DeepSeek API error');
+      logger.error({ status: res.status, model: resolved }, 'ChatGPT API error');
       return { ok: false, raw: '', latencyMs, error: String(res.status) };
     }
     const json: any = await res.json();
     const usage = json?.usage;
     const raw = coerceAiJson(json?.choices?.[0]?.message?.content ?? '');
-    if (!raw) logger.error({ model: resolved }, 'DeepSeek returned no content');
+    if (!raw) logger.error({ model: resolved }, 'ChatGPT returned no content');
+    const cached = usage?.prompt_tokens_details?.cached_tokens;
+    const prompt = usage?.prompt_tokens;
     return {
       ok: true,
       raw,
       latencyMs,
       usage: usage ? {
-        prompt: usage.prompt_tokens,
-        cacheHit: usage.prompt_cache_hit_tokens,
-        cacheMiss: usage.prompt_cache_miss_tokens,
+        prompt,
+        cacheHit: cached,
+        cacheMiss: typeof prompt === 'number' && typeof cached === 'number' ? Math.max(0, prompt - cached) : undefined,
         output: usage.completion_tokens,
+        reasoning: usage.completion_tokens_details?.reasoning_tokens,
       } : undefined,
     };
   } catch (e: any) {
     clearTimeout(timer);
-    logger.error({ err: redact(String(e?.message ?? e)), model: resolved }, 'DeepSeek request failed');
+    logger.error({ err: redact(String(e?.message ?? e)), model: resolved }, 'ChatGPT request failed');
     return { ok: false, raw: '', latencyMs: Date.now() - t0, error: 'network' };
   }
 }

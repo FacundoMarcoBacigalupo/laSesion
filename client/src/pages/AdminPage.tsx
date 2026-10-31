@@ -487,9 +487,9 @@ export default function AdminPage() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 15 }}>🤖 Diagnóstico de IA · DeepSeek</h3>
+            <h3 style={{ margin: 0, fontSize: 15 }}>🤖 Diagnóstico de IA · ChatGPT</h3>
             <span style={{ fontSize: 12, color: 'var(--mu)' }}>
-              {s.ai?.breakerOpen ? '⚠️ Breaker activado (fallbacks activos)' : 'Estado del proveedor DeepSeek'}
+              {s.ai?.breakerOpen ? '⚠️ Breaker activado (fallbacks activos)' : 'Estado del proveedor ChatGPT'}
             </span>
             {s.ai?.providerError && (
               <p role="status" style={{ color: '#ffb454', fontSize: 12, margin: '6px 0 0' }}>{s.ai.providerError}</p>

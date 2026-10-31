@@ -25,6 +25,20 @@ export function spendsModel(pedido: string, ritualCalls: number, ritualCap: numb
   return !AI_LOCAL_PEDIDOS.has(pedido) && ritualCalls < ritualCap && dayCalls < dayCap;
 }
 
+export const CHAT_MODEL = 'gpt-4.1-mini';
+
+export function safeChatModel(name: string): string {
+  const model = name.trim();
+  if (!model || /deepseek|gemini|reasoner|^chatgpt|^o\d|^gpt-5|^gpt-6/i.test(model)) return CHAT_MODEL;
+  return model;
+}
+
+export function safeChatBase(url: string): string {
+  const base = url.trim().replace(/\/$/, '');
+  if (!base || /deepseek|generativelanguage|googleapis/i.test(base)) return 'https://api.openai.com/v1';
+  return base;
+}
+
 export function keyMark(key: string): { present: boolean; length: number; suffix: string } {
   const trimmed = key.trim();
   return {

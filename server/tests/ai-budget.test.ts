@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aiLimits, keyMark, spendsModel } from '../src/ai/budget';
+import { aiLimits, keyMark, safeChatBase, safeChatModel, spendsModel } from '../src/ai/budget';
 
 describe('AI call budget', () => {
   it('spends the model only on lines that are not already written', () => {
@@ -33,5 +33,13 @@ describe('AI call budget', () => {
 
   it('clamps a loose env so it cannot raise the ceilings', () => {
     expect(aiLimits(999, 999, 999)).toEqual({ rpm: 6, ritual: 15, day: 40 });
+  });
+
+  it('refuses reasoning and leftover providers', () => {
+    expect(safeChatModel('gpt-5-mini')).toBe('gpt-4.1-mini');
+    expect(safeChatModel('deepseek-flash')).toBe('gpt-4.1-mini');
+    expect(safeChatModel('o3')).toBe('gpt-4.1-mini');
+    expect(safeChatModel('gpt-4o')).toBe('gpt-4o');
+    expect(safeChatBase('https://api.deepseek.com')).toBe('https://api.openai.com/v1');
   });
 });

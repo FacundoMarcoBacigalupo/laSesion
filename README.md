@@ -91,14 +91,14 @@ laSesion/
 │       │   ├── exorcism.ts      # start/stop, applyShake, decayExorcism
 │       │   ├── mood.ts          # setMood
 │       │   └── phases.ts        # canTransition, transition
-│       ├── ai/                  # Capa Gemini (1 llamada compartida por "latido")
-│       │   ├── gemini.client.ts # fetch nativo + timeout + 1 retry solo red
+│       ├── ai/                  # ChatGPT, una llamada por pregunta
+│       │   ├── openai.client.ts # fetch a chat/completions, sin reintentos
 │       │   ├── system.prompt.ts # SYS prompt (voseo rioplatense, máx 15 palabras)
 │       │   ├── prompt.builder.ts# buildPrompt(session, pedido) → ~3KB JSON
 │       │   ├── schemas.ts       # Zod response schemas + geminiResponseSchema
 │       │   ├── fallbacks.ts     # plantillas con datos reales (latido, víctima, testamento, pacto, fantasma, ofrenda, exorcismo, despedida)
 │       │   ├── circuitBreaker.ts# abre tras 3 fallos → 60s solo fallbacks
-│       │   └── scheduler.ts     # latido cada 9s, cola prioridad, RPM limit, min gap, breaker
+│       │   └── scheduler.ts     # cola serial, tope por minuto, rito y día
 │       ├── db/                  # libSQL (Turso) / pg (Supabase) — async, no bloqueante
 │       │   ├── client.ts        # createClient libsql
 │       │   ├── migrate.ts       # aplica migrations/*.sql en orden
@@ -213,13 +213,16 @@ npm run dev
 | `TRUST_PROXY` | No | `1` detrás de proxy (Render, Nginx) para IP real |
 | `ADMIN_PASSWORD` | **Sí** | Contraseña admin. Comparada con `crypto.timingSafeEqual` |
 | `JWT_SECRET` | **Sí** | Secreto firma cookie admin (httpOnly, Secure, SameSite=Lax, 12h) |
-| `GEMINI_API_KEY` | **Sí (prod)** | **Solo backend**. Nunca en cliente. De Google AI Studio |
-| `GEMINI_MODEL` | No | `gemini-2.5-flash` (verificar en docs actuales) |
+| `OPENAI_API_KEY` | **Sí (prod)** | **Solo backend**. Nunca en cliente. De platform.openai.com |
+| `OPENAI_MODEL` | No | `gpt-4.1-mini`. Un modelo con razonamiento se baja solo a este |
+| `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` |
 | `AI_ENABLED` | No | `true`/`false` — permite apagar IA y usar solo fallbacks |
 | `AI_HEARTBEAT_MS` | No | Latido IA cada N ms (default 9000) |
 | `AI_MIN_GAP_MS` | No | Gap mínimo entre llamadas IA (default 2500) |
-| `AI_MAX_RPM` | No | Límite global llamadas/min (ventana deslizante, default 12) |
-| `AI_TIMEOUT_MS` | No | Timeout fetch Gemini (default 7000) |
+| `AI_MAX_RPM` | No | Límite global llamadas/min. El código no pasa de 6 |
+| `AI_MAX_CALLS` | No | Respuestas de modelo por rito. El código no pasa de 15 |
+| `AI_MAX_CALLS_DAY` | No | Respuestas de modelo por día. El código no pasa de 40 |
+| `AI_TIMEOUT_MS` | No | Timeout del fetch a ChatGPT (default 7000) |
 | `DATABASE_URL` | **Sí** | Supabase: URI PostgreSQL `postgresql://...`; Turso: `libsql://...`; local: `file:./dev.db` |
 | `DATABASE_AUTH_TOKEN` | Si Turso | Token de autenticación Turso |
 | `RETENTION_HOURS` | No | Horas retención datos (default 24) |
@@ -286,7 +289,7 @@ snapshots     (session_id, state_json, at)  -- PK session_id
 Tu arquitectura actual configurada:
 - **Frontend**: Hostinger Subdominio (`https://lasesion.mythf.site`)
 - **Base de Datos**: Supabase PostgreSQL (`aws-0-us-east-1.pooler.supabase.com:5432`)
-- **IA**: DeepSeek (`deepseek-chat`)
+- **IA**: ChatGPT (`gpt-4.1-mini`)
 - **Backend (Node.js + WebSockets)**: Alojado en **Koyeb** o **Railway** (100% activos 24/7 sin cold start ni dormirse tras inactividad).
 
 ---
@@ -313,9 +316,9 @@ Tu arquitectura actual configurada:
    - `TRUST_PROXY` = `1`
    - `ADMIN_PASSWORD` = <set-in-provider-dashboard>
    - `JWT_SECRET` = <set-in-provider-dashboard>
-   - `DEEPSEEK_API_KEY` = <set-in-provider-dashboard>
-   - `DEEPSEEK_MODEL` = `deepseek-chat`
-   - `DEEPSEEK_BASE_URL` = `https://api.deepseek.com`
+   - `OPENAI_API_KEY` = <set-in-provider-dashboard>
+   - `OPENAI_MODEL` = `gpt-4.1-mini`
+   - `OPENAI_BASE_URL` = `https://api.openai.com/v1`
    - `AI_ENABLED` = `true`
    - `DATABASE_URL` = <set-in-provider-dashboard>
    - `RETENTION_HOURS` = `24`
@@ -357,19 +360,11 @@ Tu arquitectura actual configurada:
 
 ---
 
-### 🔑 Paso 0: Obtener la API Key Gratuita de Gemini
+### 🔑 Paso 0: Obtener la API key de OpenAI
 
-1. Entra con tu cuenta de Google a [Google AI Studio](https://aistudio.google.com).
-2. En la barra lateral izquierda, haz clic en **"Get API key"** (o en el botón superior **"Create API key"**).
-3. Selecciona **"Create API key in new project"** (creará un proyecto de Google Cloud automáticamente sin pedir tarjeta).
-4. Copia la clave generada (`AIzaSy...`).
-5. **Comprobación rápida (opcional)** con PowerShell o curl:
-   ```bash
-   curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=TU_API_KEY" ^
-     -H "Content-Type: application/json" ^
-     -d "{\"contents\":[{\"parts\":[{\"text\":\"Responde solo: OK\"}]}]}"
-   ```
-> *Guárdala:* Solo la pondrás en las variables de entorno de tu backend (`GEMINI_API_KEY`). **Nunca** la agregues al frontend ni la subas a GitHub.
+1. Entrá a [platform.openai.com/api-keys](https://platform.openai.com/api-keys) y creá una clave.
+2. Ponela solo en `OPENAI_API_KEY` del backend. El modelo queda en `gpt-4.1-mini`.
+3. No la pongas en el frontend ni en git. El servidor no llama a DeepSeek ni a Gemini.
 
 ---
 
@@ -421,8 +416,8 @@ El backend requiere un entorno persistente para mantener las conexiones de Socke
    - `TRUST_PROXY`: `1`
    - `ADMIN_PASSWORD`: `admin` (o tu clave deseada)
    - `JWT_SECRET`: una cadena larga aleatoria (ej. `clave-secreta-sesion-2026-halloween`)
-   - `GEMINI_API_KEY`: Tu API key copiada de Google AI Studio.
-   - `GEMINI_MODEL`: `gemini-2.5-flash`
+   - `OPENAI_API_KEY`: la clave de platform.openai.com.
+   - `OPENAI_MODEL`: `gpt-4.1-mini`
    - `DATABASE_URL`: Tu URL de Turso o Supabase.
    - `DATABASE_AUTH_TOKEN`: Tu token de Turso (si usas Turso).
 7. Haz clic en **Create Web Service**.
@@ -561,7 +556,7 @@ npm test
 - [ ] Pacto: firma se ve en vivo en `/mesa`; sin firma suben penalidades; firmado se guarda en admin y descarga PNG
 - [ ] Ofrendas caen con física; humor cambia; ofensa tras 3 repetidas
 - [ ] Exorcismo: iPhone pide permiso; botón alternativo funciona; barra decae sola; al 100% espíritu se va
-- [ ] Apagar `GEMINI_API_KEY`: todo sigue funcionando con fallbacks
+- [ ] Apagar `OPENAI_API_KEY`: todo sigue funcionando con fallbacks
 - [ ] Reiniciar servidor: celulares reconectan y restauran sesión (token localStorage)
 - [ ] `/admin` requiere login; `/mesa` y `/play` son públicos
 - [ ] Lighthouse móvil `/play`: carga inicial < 3s en 4G
@@ -650,7 +645,7 @@ npm test -w server         # vitest run
 | Three.js chunk >500KB | Ya code-split con `React.lazy` en `PlayPage.tsx` (CupSceneLazy) |
 | DB "no such table" | Ejecutar `npm run db:migrate` contra la BD correcta |
 | Socket no conecta en prod | Verificar `PUBLIC_URL` HTTPS, `TRUST_PROXY=1`, CORS origin, Render permite WebSocket |
-| IA no responde | Verificar `GEMINI_API_KEY`, logs en `/admin` → PromptViewer, forzar fallbacks (botón "Forzar fallbacks") |
+| IA no responde | Verificar `OPENAI_API_KEY`, logs en `/admin` → PromptViewer, forzar fallbacks (botón "Forzar fallbacks") |
 | iPhone no vibra / no DeviceMotion | `navigator.vibrate` no existe en iOS → compensar con pantalla roja + sonido. `DeviceMotionEvent.requestPermission()` requiere HTTPS + user gesture (botón "Activar sensor") |
 
 ---

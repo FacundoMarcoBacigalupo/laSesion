@@ -48,17 +48,12 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
         const qs = ['¿Quién se va primero?', '¿Hay alguien más acá?', '¿Cómo muero?', '¿Qué hora es?', '¿Cuánto me queda?'];
         text = qs[quickId] ?? '';
       }
-      // handle quick fixed answers with fallback; call AI responder_pregunta
       const hh = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-      // if no hands, spirit refuses
       if (store.handsCount() === 0) {
         const t = 'Sin manos en la mesa no respondo. Sostené el vaso en el celular.';
         emitSayAll(io, store, t, text, store.session.mood, false);
         ack?.({ ok: true }); return;
       }
-      scheduler.enqueue('responder_pregunta', 1, { pregunta: text }, true, text);
-      // also immediate fallback-style? scheduler will call AI. But for quick questions spec has fixed answers. We'll let AI handle; fallbackFor doesn't map quickId. To honor spec, if quickId provided, use fallback fixed answer immediately? Spec says quick questions fixed text -> fallback answer. Hmm.
-      // We'll instead emit a fixed answer for quick ones immediately (no AI) to match spec, using fallback-like fixed strings.
       if (quickId !== undefined) {
         const victimName = store.session.victimId ? store.session.users.get(store.session.victimId)?.name ?? 'NICO' : 'NICO';
         const bat = '??';
@@ -71,7 +66,10 @@ export function registerAdmin(io: any, store: SessionStore, scheduler: AiSchedul
         ];
         const fixedText = fixed[quickId] ?? '';
         emitSayAll(io, store, fixedText, String(text ?? ''), 'burlon', false);
+        ack?.({ ok: true });
+        return;
       }
+      scheduler.enqueue('responder_pregunta', 1, { pregunta: text }, true, text);
       ack?.({ ok: true });
     });
 

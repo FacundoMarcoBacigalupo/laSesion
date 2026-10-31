@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AI_DAY_CEILING, AI_RITUAL_CEILING, AI_RPM_CEILING, keyMark } from '../ai/budget';
+import { AI_DAY_CEILING, AI_RITUAL_CEILING, AI_RPM_CEILING, keyMark, safeChatModel } from '../ai/budget';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,9 +18,9 @@ const EnvSchema = z.object({
   TRUST_PROXY: z.coerce.number().default(1),
   ADMIN_PASSWORD: z.string().min(1).default('cambiame'),
   JWT_SECRET: z.string().min(8).default('dev-secret-change-me-please-long'),
-  DEEPSEEK_API_KEY: z.string().optional().default(''),
-  DEEPSEEK_MODEL: z.string().default('deepseek-flash'),
-  DEEPSEEK_BASE_URL: z.string().url().default('https://api.deepseek.com'),
+  OPENAI_API_KEY: z.string().optional().default(''),
+  OPENAI_MODEL: z.string().default('gpt-4.1-mini'),
+  OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
   AI_ENABLED: z.coerce.boolean().default(true),
   AI_HEARTBEAT_MS: z.coerce.number().default(9000),
   AI_MIN_GAP_MS: z.coerce.number().default(2500),
@@ -45,7 +45,7 @@ function load(): Env {
     process.exit(1);
   }
   if (parsed.data.NODE_ENV === 'production') {
-    if (!parsed.data.DEEPSEEK_API_KEY) console.warn('DEEPSEEK_API_KEY missing');
+    if (!parsed.data.OPENAI_API_KEY) console.warn('OPENAI_API_KEY missing');
     if (parsed.data.ADMIN_PASSWORD === 'cambiame') console.warn('ADMIN_PASSWORD default in prod');
     let databaseUrl: URL;
     try {
@@ -69,14 +69,14 @@ function load(): Env {
 
 export const env = load();
 
-const mark = keyMark(env.DEEPSEEK_API_KEY);
+const mark = keyMark(env.OPENAI_API_KEY);
 console.info(JSON.stringify({
-  event: 'deepseek.boot',
+  event: 'chatgpt.boot',
   enabled: env.AI_ENABLED,
   keyPresent: mark.present,
   keyLength: mark.length,
   keySuffix: mark.suffix,
-  model: env.DEEPSEEK_MODEL,
+  model: safeChatModel(env.OPENAI_MODEL),
   rpm: Math.min(AI_RPM_CEILING, env.AI_MAX_RPM),
   ritual: Math.min(AI_RITUAL_CEILING, env.AI_MAX_CALLS),
   day: Math.min(AI_DAY_CEILING, env.AI_MAX_CALLS_DAY),

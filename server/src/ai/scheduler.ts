@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import { callDeepSeek } from './gemini.client';
+import { callChatGpt } from './openai.client';
 import { SYS } from './system.prompt';
 import { buildPrompt } from './prompt.builder';
 import { schemaForPedido, geminiResponseSchema } from './schemas';
@@ -11,7 +11,7 @@ import { logger } from '../utils/logger';
 import { logAi } from '../db/repos/aiLogs';
 import { now, sleep } from '../utils/time';
 import { moderateText } from '../services/moderation';
-import { isLocalPedido, spendsModel, aiLimits, modelCallsToday, noteModelCall, keyMark } from './budget';
+import { isLocalPedido, spendsModel, aiLimits, modelCallsToday, noteModelCall, keyMark, safeChatModel } from './budget';
 
 type EmitSay = (text: string, question: string | undefined, mood: string, force: boolean, id: string) => void;
 type EmitAdminPrompt = (
@@ -45,7 +45,7 @@ export class AiScheduler {
     this.breaker = new CircuitBreaker(env.BREAKER_FAILS ?? 3, env.BREAKER_OPEN_MS ?? 60000);
     this.store.session.ai.providerStatus = !env.AI_ENABLED
       ? 'disabled'
-      : env.DEEPSEEK_API_KEY
+      : env.OPENAI_API_KEY
         ? 'untested'
         : 'unconfigured';
   }
@@ -147,25 +147,25 @@ export class AiScheduler {
     let fallback = useFallback;
     let ok = false;
     let latencyMs = 0;
-    let usage: { prompt?: number; cacheHit?: number; cacheMiss?: number; output?: number } | undefined;
+    let usage: { prompt?: number; cacheHit?: number; cacheMiss?: number; output?: number; reasoning?: number } | undefined;
     let status = '';
     const local = isLocalPedido(pedido);
     s.ai.providerStatus = local
       ? s.ai.providerStatus
       : !env.AI_ENABLED
         ? 'disabled'
-        : !env.DEEPSEEK_API_KEY
+        : !env.OPENAI_API_KEY
           ? 'unconfigured'
           : useFallback
             ? 'fallback'
             : 'checking';
 
-    if (!useFallback && env.AI_ENABLED && env.DEEPSEEK_API_KEY) {
+    if (!useFallback && env.AI_ENABLED && env.OPENAI_API_KEY) {
       s.ai.calls = (s.ai.calls ?? 0) + 1;
       noteModelCall();
       this.callTimestamps.push(Date.now());
       try {
-        const r = await callDeepSeek(env.DEEPSEEK_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
+        const r = await callChatGpt(env.OPENAI_MODEL, SYS, prompt, geminiResponseSchema(pedido), env.AI_TIMEOUT_MS);
         latencyMs = r.latencyMs;
         usage = r.usage;
         status = r.error ?? (r.ok ? '200' : '');
@@ -186,13 +186,13 @@ export class AiScheduler {
               fallback = true;
               s.ai.providerStatus = 'error';
               s.ai.providerError = describeValidationError(v.error.issues[0]);
-              logger.warn({ pedido, issues: v.error.issues }, 'DeepSeek response did not match the expected schema');
+              logger.warn({ pedido, issues: v.error.issues }, 'ChatGPT response did not match the expected schema');
             }
           } catch (error) {
             fallback = true;
             s.ai.providerStatus = 'error';
-            s.ai.providerError = 'DeepSeek respondió con un JSON inválido.';
-            logger.warn({ err: error, pedido }, 'Could not parse DeepSeek response');
+            s.ai.providerError = 'ChatGPT respondió con un JSON inválido.';
+            logger.warn({ err: error, pedido }, 'Could not parse ChatGPT response');
           }
         } else {
           fallback = true;
@@ -205,9 +205,9 @@ export class AiScheduler {
       } catch (e) {
         fallback = true;
         s.ai.providerStatus = 'error';
-        s.ai.providerError = 'Falló la comunicación con DeepSeek. Revisá los logs del servidor.';
+        s.ai.providerError = 'Falló la comunicación con ChatGPT. Revisá los logs del servidor.';
         this.breaker.recordFail();
-        logger.warn({ err: e }, 'DeepSeek call error');
+        logger.warn({ pedido }, 'ChatGPT call error');
       }
     } else {
       fallback = true;
@@ -219,7 +219,7 @@ export class AiScheduler {
         s.ai.providerStatus = 'fallback';
         s.ai.providerError = `Cupo del rito: ${limits.ritual} respuestas. Reiniciá el rito para otras ${limits.ritual}.`;
       } else if (s.ai.fallbackForced || this.breaker.isOpen() || this.callTimestamps.length >= limits.rpm) {
-        s.ai.providerStatus = env.AI_ENABLED && env.DEEPSEEK_API_KEY ? 'fallback' : s.ai.providerStatus;
+        s.ai.providerStatus = env.AI_ENABLED && env.OPENAI_API_KEY ? 'fallback' : s.ai.providerStatus;
       }
     }
 
@@ -228,7 +228,7 @@ export class AiScheduler {
       result = { texto: fb.texto, humor: fb.humor, clausulas: fb.clausulas };
       fallback = true;
       if (!useFallback && !s.ai.providerError) {
-        s.ai.providerError = 'DeepSeek no devolvió una respuesta utilizable.';
+        s.ai.providerError = 'ChatGPT no devolvió una respuesta utilizable.';
       }
       if (!useFallback) this.breaker.recordFail();
     }
@@ -258,41 +258,41 @@ export class AiScheduler {
     logAi(s.id, pedido, prompt, result, ok, latencyMs, fallback).catch(() => {});
     if (!isLocalPedido(pedido)) {
       const limits = aiLimits(env.AI_MAX_RPM, env.AI_MAX_CALLS, env.AI_MAX_CALLS_DAY);
-      const mark = keyMark(env.DEEPSEEK_API_KEY);
+      const mark = keyMark(env.OPENAI_API_KEY);
       const called = !useFallback && env.AI_ENABLED && mark.present;
       logger.info({
-        event: 'deepseek',
+        event: 'chatgpt',
         pedido,
         called,
         ok,
         fallback,
         status: status || undefined,
-        reason: called ? (ok ? 'ok' : (s.ai.providerError ?? 'error')) : deepseekSkipReason(pedido, s, limits, this.breaker.isOpen(), this.callTimestamps.length),
+        reason: called ? (ok ? 'ok' : (s.ai.providerError ?? 'error')) : chatSkipReason(pedido, s, limits, this.breaker.isOpen(), this.callTimestamps.length),
         latencyMs,
         ritualCalls: s.ai.calls ?? 0,
         dayCalls: modelCallsToday(),
         keyPresent: mark.present,
         keyLength: mark.length,
         keySuffix: mark.suffix,
-        model: env.DEEPSEEK_MODEL,
+        model: safeChatModel(env.OPENAI_MODEL),
         usage,
-      }, 'deepseek');
+      }, 'chatgpt');
     }
   }
 
   private exorcismTick() {
     const s = this.store.session;
     if (!s.exorcism.active) return;
-    const e = decayExorcism(s, );
+    decayExorcism(s);
     // emit handled by socket layer polling? We'll emit via a callback not here. Instead store energy; sockets read via state.
   }
 
   get breakerInstance() { return this.breaker; }
 }
 
-function deepseekSkipReason(pedido: string, s: { ai: { fallbackForced: boolean; calls?: number } }, limits: { rpm: number; ritual: number; day: number }, breakerOpen: boolean, rpmCount: number): string {
+function chatSkipReason(pedido: string, s: { ai: { fallbackForced: boolean; calls?: number } }, limits: { rpm: number; ritual: number; day: number }, breakerOpen: boolean, rpmCount: number): string {
   if (!env.AI_ENABLED) return 'disabled';
-  if (!env.DEEPSEEK_API_KEY.trim()) return 'no-key';
+  if (!env.OPENAI_API_KEY.trim()) return 'no-key';
   if (modelCallsToday() >= limits.day) return 'day-cap';
   if ((s.ai.calls ?? 0) >= limits.ritual) return 'ritual-cap';
   if (s.ai.fallbackForced) return 'forced-fallback';
@@ -306,23 +306,23 @@ function describeProviderError(error?: string): string {
   const status = error?.match(/^(\d{3})/)?.[1];
   if (status) {
     const explanations: Record<string, string> = {
-      '400': 'DeepSeek rechazó el formato de la solicitud (HTTP 400).',
-      '401': 'DeepSeek rechazó la autenticación (HTTP 401); verificá la clave configurada en Render.',
-      '402': 'DeepSeek indicó un problema de saldo o facturación (HTTP 402).',
-      '403': 'DeepSeek denegó el acceso al modelo o servicio (HTTP 403).',
-      '404': 'DeepSeek no encontró el modelo o endpoint (HTTP 404).',
-      '429': 'DeepSeek limitó las solicitudes (HTTP 429); esperá y volvé a probar.',
+      '400': 'ChatGPT rechazó el formato de la solicitud (HTTP 400).',
+      '401': 'ChatGPT rechazó la autenticación (HTTP 401); verificá la clave configurada en Render.',
+      '402': 'ChatGPT indicó un problema de saldo o facturación (HTTP 402).',
+      '403': 'ChatGPT denegó el acceso al modelo o servicio (HTTP 403).',
+      '404': 'ChatGPT no encontró el modelo o endpoint (HTTP 404).',
+      '429': 'ChatGPT limitó las solicitudes (HTTP 429); esperá y volvé a probar.',
     };
-    return explanations[status] ?? `DeepSeek devolvió HTTP ${status}. Revisá los logs del servidor.`;
+    return explanations[status] ?? `ChatGPT devolvió HTTP ${status}. Revisá los logs del servidor.`;
   }
-  if (/abort|timeout/i.test(error ?? '')) return 'La solicitud a DeepSeek agotó el tiempo de espera.';
-  return 'No se pudo conectar con DeepSeek. Revisá los logs del servidor.';
+  if (/abort|timeout/i.test(error ?? '')) return 'La solicitud a ChatGPT agotó el tiempo de espera.';
+  return 'No se pudo conectar con ChatGPT. Revisá los logs del servidor.';
 }
 
 function describeValidationError(issue?: { path: PropertyKey[]; message: string }): string {
-  if (!issue) return 'DeepSeek respondió con un formato inesperado.';
+  if (!issue) return 'ChatGPT respondió con un formato inesperado.';
   const field = issue.path.map(String).join('.');
-  return `DeepSeek respondió con formato inválido${field ? ` en ${field}` : ''}: ${issue.message}`.slice(0, 180);
+  return `ChatGPT respondió con formato inválido${field ? ` en ${field}` : ''}: ${issue.message}`.slice(0, 180);
 }
 
 function decayExorcism(s: any) {
